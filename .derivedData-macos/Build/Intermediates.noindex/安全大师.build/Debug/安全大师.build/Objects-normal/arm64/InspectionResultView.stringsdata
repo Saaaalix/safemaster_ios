@@ -1,0 +1,64 @@
+{
+  "source": "/Users/mu/Desktop/安全大师/安全大师/InspectionResultView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "排查结果",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 72
+        }
+      },
+      {
+        "comment": "",
+        "key": "无法保存",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 92
+        }
+      },
+      {
+        "comment": "",
+        "key": "照片 %lld",
+        "location": {
+          "startingColumn": 76,
+          "startingLine": 25
+        }
+      },
+      {
+        "comment": "",
+        "key": "照片",
+        "location": {
+          "startingColumn": 100,
+          "startingLine": 25
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 76
+        }
+      },
+      {
+        "comment": "",
+        "key": "记录",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "好的",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 96
+        }
+      }
+    ]
+  },
+  "version": 1
+}

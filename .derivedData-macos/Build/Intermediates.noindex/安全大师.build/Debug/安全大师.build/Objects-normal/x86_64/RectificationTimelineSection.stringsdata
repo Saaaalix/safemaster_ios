@@ -1,0 +1,280 @@
+{
+  "source": "/Users/mu/Desktop/安全大师/安全大师/RectificationTimelineSection.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "提示",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 160
+        }
+      },
+      {
+        "comment": "",
+        "key": "开始下一轮整改",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 81
+        }
+      },
+      {
+        "comment": "",
+        "key": "此处记录「实际整改」与「验收」。若在「隐患识别」已选立即/限期并保存，下方可能已有第 1 轮。上方「整改措施」仍为排查时的 AI 建议，二者可对照使用。",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 34
+        }
+      },
+      {
+        "comment": "",
+        "key": "整改闭环",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 26
+        }
+      },
+      {
+        "comment": "",
+        "key": "尚未建立整改记录",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 42
+        }
+      },
+      {
+        "comment": "",
+        "key": "立即整改",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "限期整改",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 57
+        }
+      },
+      {
+        "comment": "",
+        "key": "限期整改",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "计划完成日期",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 105
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 108
+        }
+      },
+      {
+        "comment": "",
+        "key": "验收不通过",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 135
+        }
+      },
+      {
+        "comment": "",
+        "key": "不符合项与需再次整改的要点",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 128
+        }
+      },
+      {
+        "comment": "",
+        "key": "提交后将标记本轮为「不通过」，可再开下一轮整改。",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 131
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "提交",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 144
+        }
+      },
+      {
+        "comment": "",
+        "key": "好的",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 164
+        }
+      },
+      {
+        "comment": "",
+        "key": "方式",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 232
+        }
+      },
+      {
+        "comment": "",
+        "key": "计划完成日",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": "计划完成日",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 250
+        }
+      },
+      {
+        "comment": "",
+        "key": "验收时间",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 326
+        }
+      },
+      {
+        "comment": "",
+        "key": "提交待验收",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 344
+        }
+      },
+      {
+        "comment": "",
+        "key": "第 %d 轮",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 220
+        }
+      },
+      {
+        "comment": "",
+        "key": "立即整改",
+        "location": {
+          "startingColumn": 57,
+          "startingLine": 233
+        }
+      },
+      {
+        "comment": "",
+        "key": "限期整改",
+        "location": {
+          "startingColumn": 74,
+          "startingLine": 233
+        }
+      },
+      {
+        "comment": "",
+        "key": "责任人 / 班组",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 258
+        }
+      },
+      {
+        "comment": "",
+        "key": "选填",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 262
+        }
+      },
+      {
+        "comment": "",
+        "key": "实际整改说明",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 277
+        }
+      },
+      {
+        "comment": "",
+        "key": "填写已采取的措施",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 281
+        }
+      },
+      {
+        "comment": "",
+        "key": "整改后照片",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 296
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择照片",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 301
+        }
+      },
+      {
+        "comment": "",
+        "key": "验收说明",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 333
+        }
+      },
+      {
+        "comment": "",
+        "key": "验收通过",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 351
+        }
+      },
+      {
+        "comment": "",
+        "key": "验收不通过",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 357
+        }
+      }
+    ]
+  },
+  "version": 1
+}

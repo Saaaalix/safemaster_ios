@@ -1,0 +1,29 @@
+# 本机开发用 MySQL，与线上宝塔常见版本（5.7）对齐。
+# Apple Silicon (M 系列) 上 mysql:5.7 需指定 amd64 平台（略慢但可接受）。
+#
+# 使用：在 server 目录执行
+#   docker compose up -d
+# 首次建表：docker exec -i safemaster-mysql-local mysql -usafemaster -p"$MYSQL_PASSWORD" safemaster < schema.sql
+# （密码见 .env.example，或 docker compose 里默认）
+
+services:
+  mysql:
+    image: mysql:5.7
+    platform: linux/amd64
+    container_name: safemaster-mysql-local
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-safemaster_root_dev}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-safemaster}
+      MYSQL_USER: ${MYSQL_USER:-safemaster}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-safemaster_dev}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - safemaster_mysql_data:/var/lib/mysql
+
+volumes:
+  safemaster_mysql_data:

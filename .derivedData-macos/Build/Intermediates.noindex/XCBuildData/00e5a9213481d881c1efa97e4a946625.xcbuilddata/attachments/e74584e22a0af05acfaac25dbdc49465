@@ -1,0 +1,378 @@
+{
+  "" : {
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/安全大师-master.dia",
+    "emit-module-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/安全大师-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/安全大师-master-emit-module.dia",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/安全大师-master.swiftdeps"
+  },
+  "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/DerivedSources/CoreDataGenerated/SafetyMaster/InspectionFinding+CoreDataClass.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataClass~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/DerivedSources/CoreDataGenerated/SafetyMaster/InspectionFinding+CoreDataProperties.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+CoreDataProperties~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/DerivedSources/CoreDataGenerated/SafetyMaster/RectificationRound+CoreDataClass.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataClass~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/DerivedSources/CoreDataGenerated/SafetyMaster/RectificationRound+CoreDataProperties.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationRound+CoreDataProperties~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/DerivedSources/CoreDataGenerated/SafetyMaster/SafetyMaster+CoreDataModel.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyMaster+CoreDataModel~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/ActivityShareView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ActivityShareView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/AppRootView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/AppRootView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/BuildingSafetyHubView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/BuildingSafetyHubView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/CameraImagePicker.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CameraImagePicker~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/CloudHazardAnalysisService.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/CloudHazardAnalysisService~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/DocumentLibraryView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DocumentLibraryView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/DomainSelectionView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/DomainSelectionView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/HazardAnalysisService.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardAnalysisService~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/HazardInspectionModels.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionModels~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/HazardInspectionView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardInspectionView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/HazardVoiceTranscriber.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/HazardVoiceTranscriber~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/InspectionFinding+Rectification.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Rectification~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/InspectionFinding+Report.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionFinding+Report~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/InspectionRecordsListView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionRecordsListView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/InspectionResultView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/InspectionResultView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/KeychainStore.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/KeychainStore~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/LawEvidenceRetriever.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/LawEvidenceRetriever~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/NavigationTitleMode+iOS.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/NavigationTitleMode+iOS~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/Persistence.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/Persistence~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/RecordDetailView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RecordDetailView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/RectificationCalendarExporter.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationCalendarExporter~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/RectificationTimelineSection.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/RectificationTimelineSection~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/SafeMasterAPIClient.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIClient~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/SafeMasterAPIConfiguration.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafeMasterAPIConfiguration~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/SafetyNavigationRoute.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/SafetyNavigationRoute~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/ShareableReportPDF+iOS.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportPDF+iOS~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/ShareableReportWordDocument+iOS.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/ShareableReportWordDocument+iOS~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/StoredImage.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/StoredImage~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/UserProfileView.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/UserProfileView~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/VisionImageContext.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/VisionImageContext~partial.swiftmodule"
+  },
+  "/Users/mu/Desktop/安全大师/安全大师/____App.swift" : {
+    "const-values" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App.swiftconstvalues",
+    "dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App.d",
+    "diagnostics" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App.dia",
+    "index-unit-output-path" : "/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App.o",
+    "llvm-bc" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App.bc",
+    "object" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App.o",
+    "swift-dependencies" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App.swiftdeps",
+    "swiftmodule" : "/Users/mu/Desktop/安全大师/.derivedData-macos/Build/Intermediates.noindex/安全大师.build/Debug/安全大师.build/Objects-normal/arm64/____App~partial.swiftmodule"
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "source": "/Users/mu/Desktop/安全大师/安全大师/RecordDetailView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "记录详情",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 70
+        }
+      },
+      {
+        "comment": "",
+        "key": "提示",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除这条记录？",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 107
+        }
+      },
+      {
+        "comment": "",
+        "key": "生成报告",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "当天无记录",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "好的",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 103
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 111
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 112
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除后无法恢复。",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 119
+        }
+      },
+      {
+        "comment": "",
+        "key": "生成图文报告",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 123
+        }
+      },
+      {
+        "comment": "",
+        "key": "复制全文",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 138
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 142
+        }
+      },
+      {
+        "comment": "",
+        "key": "macOS 上可先将报告复制到剪贴板；iOS 上支持系统分享面板（含图片）。",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 144
+        }
+      },
+      {
+        "comment": "",
+        "key": "记录 %lld",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 313
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 285
+        }
+      },
+      {
+        "comment": "",
+        "key": "发现时间",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 295
+        }
+      },
+      {
+        "comment": "",
+        "key": "完成",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 301
+        }
+      },
+      {
+        "comment": "",
+        "key": "本条曾为离线保存，可在有网络时用下方按钮补全 AI 分析与法规依据。重新分析会覆盖本条的隐患描述、措施、风险等级、事故类别与整改依据，不会新增一条记录。",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 370
+        }
+      },
+      {
+        "comment": "",
+        "key": "未完成 API 地址与 Apple 同步时，重新分析将使用与「隐患识别」相同的本地演示结论，不会请求你的服务端。",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 376
+        }
+      },
+      {
+        "comment": "",
+        "key": "地点",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 324
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存本条编辑",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 349
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除本条记录",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 397
+        }
+      },
+      {
+        "comment": "",
+        "key": "发现时间",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 333
+        }
+      },
+      {
+        "comment": "",
+        "key": "文字说明",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 341
+        }
+      },
+      {
+        "comment": "",
+        "key": "可补充或修改后保存，再点「重新分析」更新 AI 结论",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 344
+        }
+      },
+      {
+        "comment": "",
+        "key": "重新分析（需联网）",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 391
+        }
+      },
+      {
+        "comment": "",
+        "key": "分析中…",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 387
+        }
+      },
+      {
+        "comment": "",
+        "key": "整改与验收",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 406
+        }
+      }
+    ]
+  },
+  "version": 1
+}

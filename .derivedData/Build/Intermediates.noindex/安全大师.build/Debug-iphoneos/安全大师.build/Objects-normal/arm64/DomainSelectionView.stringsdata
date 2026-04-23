@@ -1,0 +1,24 @@
+{
+  "source": "/Users/mu/Desktop/安全大师/安全大师/DomainSelectionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "选择领域",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 14
+        }
+      },
+      {
+        "comment": "",
+        "key": "建筑施工安全",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 21
+        }
+      }
+    ]
+  },
+  "version": 1
+}

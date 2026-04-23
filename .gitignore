@@ -1,0 +1,13 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+
+# 勿将客户端密钥放回工程（已改为服务端代调模型）
+安全大师/DeepSeekSecrets.swift
+
+# 本地填写的真实环境细节（可选）；模板请用 docs/SERVER_ENV.md
+docs/SERVER_ENV.local.md
+
+# 本机 Docker / 本地数据库密码（勿把本机 config 提交）
+server/.env
+server/config.json

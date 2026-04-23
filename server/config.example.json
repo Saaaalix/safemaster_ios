@@ -1,0 +1,10 @@
+{
+  "dbHost": "127.0.0.1",
+  "dbPort": 3306,
+  "dbUser": "safemaster",
+  "dbPassword": "请填写数据库密码",
+  "dbName": "safemaster",
+  "deepseekApiKey": "可选：与 MySQL 同文件时填写；更推荐在 PM2/系统环境变量中设置 DEEPSEEK_API_KEY（勿把真密钥提交到 Git）",
+  "planMonthlyPriceCNY": 48,
+  "planDailyLimit": 20
+}

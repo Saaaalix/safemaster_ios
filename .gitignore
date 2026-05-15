@@ -11,3 +11,13 @@ docs/SERVER_ENV.local.md
 # 本机 Docker / 本地数据库密码（勿把本机 config 提交）
 server/.env
 server/config.json
+
+# Xcode DerivedData（勿提交构建缓存）
+.derivedData/
+.derivedData-*/
+DerivedData/
+
+# 法规抓取/整理脚本中间产物（App 使用 安全大师/laws_*.jsonl）
+scripts/laws_retrieval.json
+scripts/laws_retrieval.jsonl
+scripts/laws_issues.csv

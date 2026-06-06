@@ -8,6 +8,8 @@ import SwiftUI
 struct ReportTemplateEditorView: View {
     let previewData: ReportTemplatePreviewData
     @State private var template = ReportTemplate.default
+    @State private var pdfShareItem: PDFShareItem?
+    @State private var exportErrorMessage: String?
 
     init(previewData: ReportTemplatePreviewData = .sample) {
         self.previewData = previewData
@@ -37,6 +39,27 @@ struct ReportTemplateEditorView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("报告模板编辑")
         .inlineNavigationTitleMode()
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("分享 PDF") {
+                    sharePDF()
+                }
+                .disabled(enabledModules.isEmpty)
+            }
+        }
+        .alert("PDF 生成失败", isPresented: Binding(
+            get: { exportErrorMessage != nil },
+            set: { if !$0 { exportErrorMessage = nil } }
+        )) {
+            Button("好的", role: .cancel) { exportErrorMessage = nil }
+        } message: {
+            Text(exportErrorMessage ?? "")
+        }
+#if os(iOS)
+        .sheet(item: $pdfShareItem) { item in
+            ActivityShareView(items: [item.url])
+        }
+#endif
     }
 
     private var a4Preview: some View {
@@ -143,6 +166,23 @@ struct ReportTemplateEditorView: View {
         template.modules = modules
         template.updatedAt = Date()
     }
+
+    private func sharePDF() {
+        do {
+            let url = try ReportTemplatePDFExporter.buildTemporaryFileURL(
+                template: template,
+                previewData: previewData
+            )
+            pdfShareItem = PDFShareItem(url: url)
+        } catch {
+            exportErrorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct PDFShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
 }
 
 #Preview {

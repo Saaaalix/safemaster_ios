@@ -26,6 +26,7 @@ struct RecordDetailView: View {
 
     @FetchRequest private var findings: FetchedResults<InspectionFinding>
     @State private var showShare = false
+    @State private var showReportTemplateEditor = false
     @State private var reanalyzingObjectID: NSManagedObjectID?
     @State private var reanalyzeError: String?
     @State private var deleteTarget: InspectionFinding?
@@ -120,11 +121,19 @@ struct RecordDetailView: View {
         }
         .safeAreaInset(edge: .bottom) {
             if editorFocus == nil {
-                Button("生成图文报告") {
-                    showShare = true
+                VStack(spacing: 10) {
+                    Button("编辑报告模板") {
+                        showReportTemplateEditor = true
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+
+                    Button("生成图文报告") {
+                        showShare = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
                 .padding()
                 .background(.ultraThinMaterial)
             }
@@ -144,6 +153,11 @@ struct RecordDetailView: View {
             Text("macOS 上可先将报告复制到剪贴板；iOS 上支持系统分享面板（含图片）。")
         }
 #endif
+        .sheet(isPresented: $showReportTemplateEditor) {
+            NavigationStack {
+                ReportTemplateEditorView()
+            }
+        }
     }
 
     private func deleteFinding(_ f: InspectionFinding) {

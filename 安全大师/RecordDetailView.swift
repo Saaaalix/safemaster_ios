@@ -155,7 +155,12 @@ struct RecordDetailView: View {
 #endif
         .sheet(isPresented: $showReportTemplateEditor) {
             NavigationStack {
-                ReportTemplateEditorView()
+                ReportTemplateEditorView(
+                    previewData: ReportTemplatePreviewData(
+                        findings: Array(findings),
+                        reportDate: day
+                    )
+                )
             }
         }
     }

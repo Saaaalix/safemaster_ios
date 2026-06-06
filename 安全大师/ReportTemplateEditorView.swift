@@ -6,7 +6,12 @@
 import SwiftUI
 
 struct ReportTemplateEditorView: View {
+    let previewData: ReportTemplatePreviewData
     @State private var template = ReportTemplate.default
+
+    init(previewData: ReportTemplatePreviewData = .sample) {
+        self.previewData = previewData
+    }
 
     private var orderedModules: [ReportModule] {
         template.modules.sorted { $0.sortIndex < $1.sortIndex }
@@ -53,7 +58,7 @@ struct ReportTemplateEditorView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(enabledModules) { module in
-                        ReportModulePreviewView(module: module)
+                        ReportModulePreviewView(module: module, previewData: previewData)
                     }
                 }
             }
@@ -142,6 +147,6 @@ struct ReportTemplateEditorView: View {
 
 #Preview {
     NavigationStack {
-        ReportTemplateEditorView()
+        ReportTemplateEditorView(previewData: .sample)
     }
 }

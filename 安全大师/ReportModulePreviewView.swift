@@ -7,13 +7,7 @@ import SwiftUI
 
 struct ReportModulePreviewView: View {
     let module: ReportModule
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年MM月dd日"
-        return formatter
-    }()
+    let previewData: ReportTemplatePreviewData
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -33,13 +27,14 @@ struct ReportModulePreviewView: View {
         switch module.type {
         case .basicInfo:
             VStack(alignment: .leading, spacing: 6) {
-                previewRow("项目名称", "示例项目")
-                previewRow("检查单位", "安全生产检查组")
-                previewRow("受检单位", "示例受检项目部")
-                previewRow("检查时间", Self.dateFormatter.string(from: Date()))
+                previewRow("项目名称", previewData.basicInfo.projectName)
+                previewRow("检查单位", previewData.basicInfo.inspectionUnit)
+                previewRow("受检单位", previewData.basicInfo.inspectedUnit)
+                previewRow("检查时间", previewData.basicInfo.inspectionTime)
+                previewRow("记录数量", "\(previewData.basicInfo.recordCount) 项")
             }
         case .narrative:
-            Text("根据安全生产检查要求，检查组对项目现场安全生产、文明施工、临时用电等情况进行了检查，现将检查及整改情况报告如下。")
+            Text(previewData.narrative)
                 .font(.subheadline)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -47,33 +42,59 @@ struct ReportModulePreviewView: View {
             rectificationTable
         case .photoComparison:
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    photoPlaceholder("整改前照片")
-                    photoPlaceholder("整改后照片")
+                if previewData.photoComparisons.isEmpty {
+                    photoPlaceholder("暂无照片")
+                } else {
+                    ForEach(previewData.photoComparisons.prefix(3)) { item in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("隐患 \(item.index)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: 10) {
+                                photoView(data: item.beforePhotoData, placeholder: "整改前照片未添加")
+                                photoView(data: item.afterPhotoData, placeholder: "整改后照片未添加")
+                            }
+                            previewRow("问题说明", item.issueDescription)
+                            previewRow("整改说明", item.rectificationDescription)
+                        }
+                    }
                 }
-                Text("问题说明：现场临边防护不到位，已按要求完成整改并复查确认。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         case .signature:
             VStack(alignment: .leading, spacing: 8) {
-                signatureLine("整改负责人")
-                signatureLine("安全总监")
-                signatureLine("项目负责人")
-                signatureLine("日期")
+                signatureLine("整改负责人", previewData.signature.rectificationResponsible)
+                signatureLine("安全总监", previewData.signature.safetyDirector)
+                signatureLine("项目负责人", previewData.signature.projectManager)
+                signatureLine("复查人", previewData.signature.reviewer)
+                signatureLine("日期", previewData.signature.date)
             }
         case .notes:
-            Text("备注：这里显示补充说明或复查意见。")
-                .font(.subheadline)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                previewRow("复查意见", previewData.notes.reviewOpinion)
+                previewRow("补充说明", previewData.notes.supplementaryNotes)
+            }
         }
     }
 
     private var rectificationTable: some View {
         VStack(spacing: 0) {
-            tableRow(["序号", "问题描述", "整改情况"], isHeader: true)
-            tableRow(["1", "临边防护缺失", "已补设防护栏杆"])
-            tableRow(["2", "材料堆放不整齐", "已完成分类码放"])
+            tableRow(["序号", "隐患描述", "整改情况", "风险", "责任人"], isHeader: true)
+            ForEach(previewData.rectificationItems.prefix(5)) { item in
+                tableRow([
+                    "\(item.index)",
+                    item.issueDescription,
+                    item.rectificationStatus,
+                    item.riskLevel,
+                    item.responsibleParty
+                ])
+            }
+            if previewData.rectificationItems.count > 5 {
+                Text("其余内容将在导出报告中完整展示")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(7)
+            }
         }
         .overlay(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -87,7 +108,8 @@ struct ReportModulePreviewView: View {
                 Text(values[index])
                     .font(isHeader ? .caption.weight(.semibold) : .caption)
                     .foregroundStyle(isHeader ? .primary : .secondary)
-                    .frame(maxWidth: index == 0 ? 36 : .infinity, alignment: .leading)
+                    .lineLimit(3)
+                    .frame(maxWidth: index == 0 ? 34 : .infinity, alignment: .leading)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 7)
                     .background(isHeader ? Color(.tertiarySystemBackground) : Color.clear)
@@ -136,15 +158,34 @@ struct ReportModulePreviewView: View {
         )
     }
 
-    private func signatureLine(_ title: String) -> some View {
+    private func photoView(data: Data?, placeholder: String) -> some View {
+        Group {
+            if let image = Image.fromStoredData(data) {
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 88)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else {
+                photoPlaceholder(placeholder)
+            }
+        }
+    }
+
+    private func signatureLine(_ title: String, _ value: String) -> some View {
         HStack(spacing: 8) {
             Text("\(title)：")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 86, alignment: .leading)
+            Text(value)
+                .font(.caption)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Rectangle()
                 .fill(Color(.separator))
-                .frame(height: 0.7)
+                .frame(width: 42, height: 0.7)
         }
     }
 }
@@ -153,7 +194,7 @@ struct ReportModulePreviewView: View {
     ScrollView {
         VStack(spacing: 12) {
             ForEach(ReportTemplate.default.enabledModules) { module in
-                ReportModulePreviewView(module: module)
+                ReportModulePreviewView(module: module, previewData: .sample)
             }
         }
         .padding()

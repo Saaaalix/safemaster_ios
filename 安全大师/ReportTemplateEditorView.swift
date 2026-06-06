@@ -8,11 +8,20 @@ import SwiftUI
 struct ReportTemplateEditorView: View {
     let previewData: ReportTemplatePreviewData
     @State private var template = ReportTemplate.default
+    @State private var savedTemplates: [SavedReportTemplate]
+    @State private var selectedTemplateID: SavedReportTemplate.ID
+    @State private var templateName = ReportTemplate.default.name
+    @State private var templateDescription = ""
     @State private var pdfShareItem: PDFShareItem?
     @State private var exportErrorMessage: String?
+    @State private var templateStatusMessage: String?
+    @State private var didLoadInitialTemplate = false
 
     init(previewData: ReportTemplatePreviewData = .sample) {
+        let loadedTemplates = SavedReportTemplateStore.load()
         self.previewData = previewData
+        _savedTemplates = State(initialValue: loadedTemplates)
+        _selectedTemplateID = State(initialValue: loadedTemplates.first?.id ?? ReportTemplate.default.id)
     }
 
     private var orderedModules: [ReportModule] {
@@ -31,6 +40,7 @@ struct ReportTemplateEditorView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                templateSelectionSection
                 a4Preview
                 moduleManagement
             }
@@ -39,6 +49,7 @@ struct ReportTemplateEditorView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("报告模板编辑")
         .inlineNavigationTitleMode()
+        .onAppear(perform: loadInitialTemplate)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("分享 PDF") {
@@ -60,6 +71,56 @@ struct ReportTemplateEditorView: View {
             ActivityShareView(items: [item.url])
         }
 #endif
+    }
+
+    private var templateSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("模板管理")
+                .font(.headline)
+
+            TextField("模板名称", text: $templateName)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("模板描述（可选）", text: $templateDescription, axis: .vertical)
+                .lineLimit(1...3)
+                .textFieldStyle(.roundedBorder)
+
+            Picker("选择模板", selection: $selectedTemplateID) {
+                ForEach(savedTemplates) { item in
+                    Text(item.name).tag(item.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: selectedTemplateID) { _, id in
+                loadTemplate(id: id)
+            }
+
+            HStack(spacing: 10) {
+                Button("新建模板") {
+                    createTemplate()
+                }
+                .buttonStyle(.bordered)
+
+                Button("保存模板") {
+                    saveCurrentTemplate()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("删除模板", role: .destructive) {
+                    deleteCurrentTemplate()
+                }
+                .buttonStyle(.bordered)
+                .disabled(savedTemplates.count <= 1)
+            }
+
+            if let templateStatusMessage {
+                Text(templateStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var a4Preview: some View {
@@ -165,6 +226,92 @@ struct ReportTemplateEditorView: View {
         }
         template.modules = modules
         template.updatedAt = Date()
+    }
+
+    private func loadInitialTemplate() {
+        guard !didLoadInitialTemplate else { return }
+        didLoadInitialTemplate = true
+        guard let first = savedTemplates.first else { return }
+        selectedTemplateID = first.id
+        apply(savedTemplate: first)
+    }
+
+    private func loadTemplate(id: SavedReportTemplate.ID) {
+        guard let saved = savedTemplates.first(where: { $0.id == id }) else { return }
+        apply(savedTemplate: saved)
+    }
+
+    private func apply(savedTemplate: SavedReportTemplate) {
+        template = savedTemplate.template
+        template.name = savedTemplate.name
+        selectedTemplateID = savedTemplate.id
+        templateName = savedTemplate.name
+        templateDescription = savedTemplate.description ?? ""
+        templateStatusMessage = "已加载：\(savedTemplate.name)"
+    }
+
+    private func createTemplate() {
+        var newTemplate = template
+        newTemplate.id = UUID()
+        newTemplate.name = nextTemplateName()
+        newTemplate.createdAt = Date()
+        newTemplate.updatedAt = Date()
+        let saved = SavedReportTemplate(
+            id: newTemplate.id,
+            name: newTemplate.name,
+            description: templateDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : templateDescription,
+            template: newTemplate
+        )
+        savedTemplates.insert(saved, at: 0)
+        SavedReportTemplateStore.save(savedTemplates)
+        apply(savedTemplate: saved)
+        templateStatusMessage = "已新建模板"
+    }
+
+    private func saveCurrentTemplate() {
+        let name = templateName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "未命名模板" : templateName
+        let description = templateDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        template.name = name
+        template.updatedAt = Date()
+        let saved = SavedReportTemplate(
+            id: selectedTemplateID,
+            name: name,
+            description: description.isEmpty ? nil : description,
+            template: template,
+            updatedAt: Date()
+        )
+        if let index = savedTemplates.firstIndex(where: { $0.id == selectedTemplateID }) {
+            savedTemplates[index] = saved
+        } else {
+            savedTemplates.insert(saved, at: 0)
+        }
+        SavedReportTemplateStore.save(savedTemplates)
+        savedTemplates = SavedReportTemplateStore.load()
+        selectedTemplateID = saved.id
+        templateStatusMessage = "模板已保存"
+    }
+
+    private func deleteCurrentTemplate() {
+        guard savedTemplates.count > 1 else { return }
+        savedTemplates.removeAll { $0.id == selectedTemplateID }
+        SavedReportTemplateStore.save(savedTemplates)
+        savedTemplates = SavedReportTemplateStore.load()
+        if let first = savedTemplates.first {
+            apply(savedTemplate: first)
+        }
+        templateStatusMessage = "模板已删除"
+    }
+
+    private func nextTemplateName() -> String {
+        let base = "新模板"
+        var index = savedTemplates.count + 1
+        var name = "\(base) \(index)"
+        let existingNames = Set(savedTemplates.map(\.name))
+        while existingNames.contains(name) {
+            index += 1
+            name = "\(base) \(index)"
+        }
+        return name
     }
 
     private func sharePDF() {

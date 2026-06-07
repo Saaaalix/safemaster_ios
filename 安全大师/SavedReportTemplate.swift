@@ -9,6 +9,7 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
     var id: UUID
     var name: String
     var description: String?
+    var documentKind: ReportDocumentKind
     var template: ReportTemplate
     var editableFields: ReportTemplateEditableFields?
     var updatedAt: Date
@@ -17,6 +18,7 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
         id: UUID = UUID(),
         name: String,
         description: String? = nil,
+        documentKind: ReportDocumentKind = .rectificationReply,
         template: ReportTemplate,
         editableFields: ReportTemplateEditableFields? = nil,
         updatedAt: Date = Date()
@@ -24,6 +26,7 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
         self.id = id
         self.name = name
         self.description = description
+        self.documentKind = documentKind
         self.template = template
         self.editableFields = editableFields
         self.updatedAt = updatedAt
@@ -33,6 +36,7 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
         case id
         case name
         case description
+        case documentKind
         case template
         case editableFields
         case updatedAt
@@ -43,6 +47,7 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         description = try container.decodeIfPresent(String.self, forKey: .description)
+        documentKind = try container.decodeIfPresent(ReportDocumentKind.self, forKey: .documentKind) ?? .rectificationReply
         template = try container.decode(ReportTemplate.self, forKey: .template)
         editableFields = try container.decodeIfPresent(ReportTemplateEditableFields.self, forKey: .editableFields)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
@@ -54,6 +59,7 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
             id: template.id,
             name: template.name,
             description: "系统默认模板",
+            documentKind: .rectificationReply,
             template: template
         )
     }
@@ -94,6 +100,9 @@ enum SavedReportTemplateStore {
             copy.description = nil
         }
         copy.template.name = copy.name
+        if copy.editableFields?.reportTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
+            copy.editableFields?.reportTitle = copy.documentKind.defaultReportTitle
+        }
         copy.template.modules = copy.template.modules.sorted { $0.sortIndex < $1.sortIndex }
         return copy
     }

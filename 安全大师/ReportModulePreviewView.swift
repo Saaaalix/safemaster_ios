@@ -9,6 +9,7 @@ struct ReportModulePreviewView: View {
     let module: ReportModule
     let previewData: ReportTemplatePreviewData
     let editableFields: ReportTemplateEditableFields
+    var documentKind: ReportDocumentKind = .rectificationReply
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -27,14 +28,7 @@ struct ReportModulePreviewView: View {
     private var content: some View {
         switch module.type {
         case .basicInfo:
-            keyValueTable([
-                ("报告标题", editableFields.displayValue(\.reportTitle)),
-                ("项目名称", editableFields.displayValue(\.projectName)),
-                ("检查单位", editableFields.displayValue(\.inspectionUnit)),
-                ("受检单位", editableFields.displayValue(\.inspectedUnit)),
-                ("检查时间", editableFields.displayValue(\.inspectionDate)),
-                ("记录数量", "\(previewData.basicInfo.recordCount) 项")
-            ])
+            keyValueTable(basicInfoRows)
         case .narrative:
             Text(editableFields.displayValue(\.narrativeText))
                 .font(.subheadline)
@@ -64,17 +58,90 @@ struct ReportModulePreviewView: View {
             }
         case .signature:
             VStack(alignment: .leading, spacing: 8) {
-                signatureLine("整改负责人", editableFields.displayValue(\.rectificationResponsiblePerson))
-                signatureLine("安全总监", editableFields.displayValue(\.safetyDirector))
-                signatureLine("项目负责人", editableFields.displayValue(\.projectManager))
-                signatureLine("复查人", editableFields.displayValue(\.reviewer))
-                signatureLine("日期", editableFields.displayValue(\.signatureDate))
+                ForEach(signatureRows.indices, id: \.self) { index in
+                    signatureLine(signatureRows[index].0, signatureRows[index].1)
+                }
             }
         case .notes:
             VStack(alignment: .leading, spacing: 6) {
-                previewRow("复查意见", editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注"))
+                if documentKind == .monthlyReport {
+                    previewRow("下月计划", editableFields.displayValue(\.nextMonthPlan, fallback: "暂无备注"))
+                } else if documentKind == .safetyEducationRecord {
+                    previewRow("教育内容", editableFields.displayValue(\.educationContent, fallback: "暂无备注"))
+                } else {
+                    previewRow("复查意见", editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注"))
+                }
                 previewRow("补充说明", editableFields.displayValue(\.additionalNotes, fallback: "暂无备注"))
             }
+        }
+    }
+
+    private var basicInfoRows: [(String, String)] {
+        switch documentKind {
+        case .hazardNotice:
+            return [
+                ("报告标题", editableFields.displayValue(\.reportTitle)),
+                ("通知编号", editableFields.displayValue(\.noticeNumber)),
+                ("检查单位", editableFields.displayValue(\.inspectionUnit)),
+                ("受检单位", editableFields.displayValue(\.inspectedUnit)),
+                ("检查时间", editableFields.displayValue(\.inspectionDate)),
+                ("整改期限", editableFields.displayValue(\.rectificationDeadline)),
+                ("检查人", editableFields.displayValue(\.inspector)),
+                ("接收人", editableFields.displayValue(\.receiver)),
+                ("隐患数量", "\(previewData.basicInfo.recordCount) 项")
+            ]
+        case .rectificationReply:
+            return [
+                ("报告标题", editableFields.displayValue(\.reportTitle)),
+                ("项目名称", editableFields.displayValue(\.projectName)),
+                ("受检单位", editableFields.displayValue(\.inspectedUnit)),
+                ("检查时间", editableFields.displayValue(\.inspectionDate)),
+                ("记录数量", "\(previewData.basicInfo.recordCount) 项")
+            ]
+        case .safetyEducationRecord:
+            return [
+                ("报告标题", editableFields.displayValue(\.reportTitle)),
+                ("教育主题", editableFields.displayValue(\.educationTopic)),
+                ("教育时间", editableFields.displayValue(\.educationDate)),
+                ("教育地点", editableFields.displayValue(\.educationLocation)),
+                ("主讲人", editableFields.displayValue(\.lecturer)),
+                ("参加人员", editableFields.displayValue(\.participants))
+            ]
+        case .monthlyReport:
+            return [
+                ("报告标题", editableFields.displayValue(\.reportTitle)),
+                ("月份", editableFields.displayValue(\.reportMonth)),
+                ("检查次数", editableFields.displayValue(\.monthlyInspectionCount)),
+                ("隐患数量", editableFields.displayValue(\.monthlyHazardCount)),
+                ("已整改", editableFields.displayValue(\.monthlyRectifiedCount)),
+                ("未整改", editableFields.displayValue(\.monthlyUnrectifiedCount)),
+                ("教育次数", editableFields.displayValue(\.monthlyEducationCount))
+            ]
+        }
+    }
+
+    private var signatureRows: [(String, String)] {
+        switch documentKind {
+        case .hazardNotice:
+            return [
+                ("检查人", editableFields.displayValue(\.inspector)),
+                ("接收人", editableFields.displayValue(\.receiver)),
+                ("日期", editableFields.displayValue(\.signatureDate))
+            ]
+        case .safetyEducationRecord:
+            return [
+                ("主讲人", editableFields.displayValue(\.lecturer)),
+                ("参加人员", editableFields.displayValue(\.participants)),
+                ("日期", editableFields.displayValue(\.signatureDate))
+            ]
+        default:
+            return [
+                ("整改负责人", editableFields.displayValue(\.rectificationResponsiblePerson)),
+                ("安全总监", editableFields.displayValue(\.safetyDirector)),
+                ("项目负责人", editableFields.displayValue(\.projectManager)),
+                ("复查人", editableFields.displayValue(\.reviewer)),
+                ("日期", editableFields.displayValue(\.signatureDate))
+            ]
         }
     }
 

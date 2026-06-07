@@ -25,7 +25,8 @@ enum ReportTemplatePDFExporter {
     static func buildTemporaryFileURL(
         template: ReportTemplate,
         previewData: ReportTemplatePreviewData,
-        editableFields: ReportTemplateEditableFields
+        editableFields: ReportTemplateEditableFields,
+        documentKind: ReportDocumentKind = .rectificationReply
     ) throws -> URL {
         let modules = template.enabledModules
         guard !modules.isEmpty else { throw ExportError.noEnabledModules }
@@ -35,6 +36,7 @@ enum ReportTemplatePDFExporter {
             modules: modules,
             previewData: previewData,
             editableFields: editableFields,
+            documentKind: documentKind,
             totalPages: nil
         ).pageCount
         let rendered = renderPDF(
@@ -42,6 +44,7 @@ enum ReportTemplatePDFExporter {
             modules: modules,
             previewData: previewData,
             editableFields: editableFields,
+            documentKind: documentKind,
             totalPages: pageCount
         )
 
@@ -60,6 +63,7 @@ enum ReportTemplatePDFExporter {
         modules: [ReportModule],
         previewData: ReportTemplatePreviewData,
         editableFields: ReportTemplateEditableFields,
+        documentKind: ReportDocumentKind,
         totalPages: Int?
     ) -> (data: Data, pageCount: Int) {
         let bounds = CGRect(x: 0, y: 0, width: PDFPage.width, height: PDFPage.height)
@@ -75,7 +79,7 @@ enum ReportTemplatePDFExporter {
                 session.drawSectionTitle(module.title)
                 switch module.type {
                 case .basicInfo:
-                    drawBasicInfo(previewData.basicInfo, editableFields: editableFields, session: &session)
+                    drawBasicInfo(previewData.basicInfo, editableFields: editableFields, documentKind: documentKind, session: &session)
                 case .narrative:
                     session.drawParagraph(editableFields.displayValue(\.narrativeText), firstLineHeadIndent: 24)
                 case .rectificationList:
@@ -83,9 +87,9 @@ enum ReportTemplatePDFExporter {
                 case .photoComparison:
                     drawPhotoComparisons(previewData.photoComparisons, session: &session)
                 case .signature:
-                    drawSignature(editableFields, session: &session)
+                    drawSignature(editableFields, documentKind: documentKind, session: &session)
                 case .notes:
-                    drawNotes(editableFields, session: &session)
+                    drawNotes(editableFields, documentKind: documentKind, session: &session)
                 }
                 session.y += 12
             }
@@ -121,15 +125,47 @@ enum ReportTemplatePDFExporter {
     private static func drawBasicInfo(
         _ info: ReportBasicInfoPreviewData,
         editableFields: ReportTemplateEditableFields,
+        documentKind: ReportDocumentKind,
         session: inout PDFDrawingSession
     ) {
-        let rows = [
-            ("项目名称", editableFields.displayValue(\.projectName)),
-            ("检查单位", editableFields.displayValue(\.inspectionUnit)),
-            ("受检单位", editableFields.displayValue(\.inspectedUnit)),
-            ("检查时间", editableFields.displayValue(\.inspectionDate)),
-            ("记录数量", "\(info.recordCount) 项")
-        ]
+        let rows: [(String, String)]
+        switch documentKind {
+        case .hazardNotice:
+            rows = [
+                ("通知编号", editableFields.displayValue(\.noticeNumber)),
+                ("检查单位", editableFields.displayValue(\.inspectionUnit)),
+                ("受检单位", editableFields.displayValue(\.inspectedUnit)),
+                ("检查时间", editableFields.displayValue(\.inspectionDate)),
+                ("整改期限", editableFields.displayValue(\.rectificationDeadline)),
+                ("检查人", editableFields.displayValue(\.inspector)),
+                ("接收人", editableFields.displayValue(\.receiver)),
+                ("隐患数量", "\(info.recordCount) 项")
+            ]
+        case .rectificationReply:
+            rows = [
+                ("项目名称", editableFields.displayValue(\.projectName)),
+                ("受检单位", editableFields.displayValue(\.inspectedUnit)),
+                ("检查时间", editableFields.displayValue(\.inspectionDate)),
+                ("记录数量", "\(info.recordCount) 项")
+            ]
+        case .safetyEducationRecord:
+            rows = [
+                ("教育主题", editableFields.displayValue(\.educationTopic)),
+                ("教育时间", editableFields.displayValue(\.educationDate)),
+                ("教育地点", editableFields.displayValue(\.educationLocation)),
+                ("主讲人", editableFields.displayValue(\.lecturer)),
+                ("参加人员", editableFields.displayValue(\.participants))
+            ]
+        case .monthlyReport:
+            rows = [
+                ("月份", editableFields.displayValue(\.reportMonth)),
+                ("本月检查次数", editableFields.displayValue(\.monthlyInspectionCount)),
+                ("本月隐患数量", editableFields.displayValue(\.monthlyHazardCount)),
+                ("已整改数量", editableFields.displayValue(\.monthlyRectifiedCount)),
+                ("未整改数量", editableFields.displayValue(\.monthlyUnrectifiedCount)),
+                ("教育培训次数", editableFields.displayValue(\.monthlyEducationCount))
+            ]
+        }
         session.drawKeyValueTable(rows)
     }
 
@@ -202,26 +238,56 @@ enum ReportTemplatePDFExporter {
 
     private static func drawSignature(
         _ editableFields: ReportTemplateEditableFields,
+        documentKind: ReportDocumentKind,
         session: inout PDFDrawingSession
     ) {
-        let rows = [
-            ("整改负责人", editableFields.displayValue(\.rectificationResponsiblePerson)),
-            ("安全总监", editableFields.displayValue(\.safetyDirector)),
-            ("项目负责人", editableFields.displayValue(\.projectManager)),
-            ("复查人", editableFields.displayValue(\.reviewer)),
-            ("日期", editableFields.displayValue(\.signatureDate))
-        ]
+        let rows: [(String, String)]
+        if documentKind == .hazardNotice {
+            rows = [
+                ("检查人", editableFields.displayValue(\.inspector)),
+                ("接收人", editableFields.displayValue(\.receiver)),
+                ("日期", editableFields.displayValue(\.signatureDate))
+            ]
+        } else if documentKind == .safetyEducationRecord {
+            rows = [
+                ("主讲人", editableFields.displayValue(\.lecturer)),
+                ("参加人员", editableFields.displayValue(\.participants)),
+                ("日期", editableFields.displayValue(\.signatureDate))
+            ]
+        } else {
+            rows = [
+                ("整改负责人", editableFields.displayValue(\.rectificationResponsiblePerson)),
+                ("安全总监", editableFields.displayValue(\.safetyDirector)),
+                ("项目负责人", editableFields.displayValue(\.projectManager)),
+                ("复查人", editableFields.displayValue(\.reviewer)),
+                ("日期", editableFields.displayValue(\.signatureDate))
+            ]
+        }
         session.drawSignatureGrid(rows)
     }
 
     private static func drawNotes(
         _ editableFields: ReportTemplateEditableFields,
+        documentKind: ReportDocumentKind,
         session: inout PDFDrawingSession
     ) {
-        session.drawBorderedText(
-            title: "复查意见",
-            body: editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注")
-        )
+        switch documentKind {
+        case .monthlyReport:
+            session.drawBorderedText(
+                title: "下月计划",
+                body: editableFields.displayValue(\.nextMonthPlan, fallback: "暂无备注")
+            )
+        case .safetyEducationRecord:
+            session.drawBorderedText(
+                title: "教育内容",
+                body: editableFields.displayValue(\.educationContent, fallback: "暂无备注")
+            )
+        default:
+            session.drawBorderedText(
+                title: "复查意见",
+                body: editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注")
+            )
+        }
         session.drawBorderedText(
             title: "补充说明",
             body: editableFields.displayValue(\.additionalNotes, fallback: "暂无备注")

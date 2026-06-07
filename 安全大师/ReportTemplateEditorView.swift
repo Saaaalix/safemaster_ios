@@ -11,6 +11,7 @@ struct ReportTemplateEditorView: View {
     @State private var editableFields: ReportTemplateEditableFields
     @State private var savedTemplates: [SavedReportTemplate]
     @State private var selectedTemplateID: SavedReportTemplate.ID
+    @State private var selectedDocumentKind: ReportDocumentKind
     @State private var templateName = ReportTemplate.default.name
     @State private var templateDescription = ""
     @State private var pdfShareItem: PDFShareItem?
@@ -26,6 +27,7 @@ struct ReportTemplateEditorView: View {
         _editableFields = State(initialValue: ReportTemplateEditableFields(previewData: previewData))
         _savedTemplates = State(initialValue: loadedTemplates)
         _selectedTemplateID = State(initialValue: loadedTemplates.first?.id ?? ReportTemplate.default.id)
+        _selectedDocumentKind = State(initialValue: loadedTemplates.first?.documentKind ?? .rectificationReply)
     }
 
     private var orderedModules: [ReportModule] {
@@ -34,6 +36,10 @@ struct ReportTemplateEditorView: View {
 
     private var enabledModules: [ReportModule] {
         orderedModules.filter(\.isEnabled)
+    }
+
+    private var templatesForSelectedKind: [SavedReportTemplate] {
+        savedTemplates.filter { $0.documentKind == selectedDocumentKind }
     }
 
     var body: some View {
@@ -107,6 +113,21 @@ struct ReportTemplateEditorView: View {
             Text("模板管理")
                 .font(.headline)
 
+            Picker("文书类型", selection: $selectedDocumentKind) {
+                ForEach(ReportDocumentKind.allCases) { kind in
+                    Text(kind.displayName).tag(kind)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: selectedDocumentKind) { _, kind in
+                loadTemplateForDocumentKind(kind)
+            }
+
+            Text(selectedDocumentKind.summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             TextField("模板名称", text: $templateName)
                 .textFieldStyle(.roundedBorder)
 
@@ -121,7 +142,7 @@ struct ReportTemplateEditorView: View {
             }
 
             Picker("选择模板", selection: $selectedTemplateID) {
-                ForEach(savedTemplates) { item in
+                ForEach(templatesForSelectedKind) { item in
                     Text(item.name).tag(item.id)
                 }
             }
@@ -153,6 +174,10 @@ struct ReportTemplateEditorView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Text("当前文书：\(selectedDocumentKind.displayName)")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -180,7 +205,8 @@ struct ReportTemplateEditorView: View {
                         ReportModulePreviewView(
                             module: module,
                             previewData: previewData,
-                            editableFields: editableFields
+                            editableFields: editableFields,
+                            documentKind: selectedDocumentKind
                         )
                     }
                 }
@@ -200,54 +226,16 @@ struct ReportTemplateEditorView: View {
             VStack(alignment: .leading, spacing: 12) {
                 TextField("报告标题", text: $editableFields.reportTitle)
                     .textFieldStyle(.roundedBorder)
-                TextField("项目名称", text: $editableFields.projectName)
-                    .textFieldStyle(.roundedBorder)
-                TextField("检查单位", text: $editableFields.inspectionUnit)
-                    .textFieldStyle(.roundedBorder)
-                TextField("受检单位", text: $editableFields.inspectedUnit)
-                    .textFieldStyle(.roundedBorder)
-                TextField("检查时间", text: $editableFields.inspectionDate)
-                    .textFieldStyle(.roundedBorder)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("正文说明")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextEditor(text: $editableFields.narrativeText)
-                        .frame(minHeight: 96)
-                        .padding(6)
-                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-
-                TextField("整改负责人", text: $editableFields.rectificationResponsiblePerson)
-                    .textFieldStyle(.roundedBorder)
-                TextField("安全总监", text: $editableFields.safetyDirector)
-                    .textFieldStyle(.roundedBorder)
-                TextField("项目负责人", text: $editableFields.projectManager)
-                    .textFieldStyle(.roundedBorder)
-                TextField("复查人", text: $editableFields.reviewer)
-                    .textFieldStyle(.roundedBorder)
-                TextField("日期", text: $editableFields.signatureDate)
-                    .textFieldStyle(.roundedBorder)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("复查意见")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextEditor(text: $editableFields.reviewOpinion)
-                        .frame(minHeight: 72)
-                        .padding(6)
-                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("补充说明")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextEditor(text: $editableFields.additionalNotes)
-                        .frame(minHeight: 72)
-                        .padding(6)
-                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                switch selectedDocumentKind {
+                case .hazardNotice:
+                    hazardNoticeFields
+                case .rectificationReply:
+                    rectificationReplyFields
+                case .safetyEducationRecord:
+                    safetyEducationFields
+                case .monthlyReport:
+                    monthlyReportFields
                 }
             }
             .padding(.top, 8)
@@ -257,6 +245,104 @@ struct ReportTemplateEditorView: View {
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var hazardNoticeFields: some View {
+        Group {
+            TextField("通知编号", text: $editableFields.noticeNumber)
+                .textFieldStyle(.roundedBorder)
+            TextField("检查单位", text: $editableFields.inspectionUnit)
+                .textFieldStyle(.roundedBorder)
+            TextField("受检单位", text: $editableFields.inspectedUnit)
+                .textFieldStyle(.roundedBorder)
+            TextField("检查时间", text: $editableFields.inspectionDate)
+                .textFieldStyle(.roundedBorder)
+            TextField("整改期限", text: $editableFields.rectificationDeadline)
+                .textFieldStyle(.roundedBorder)
+            TextField("检查人", text: $editableFields.inspector)
+                .textFieldStyle(.roundedBorder)
+            TextField("接收人", text: $editableFields.receiver)
+                .textFieldStyle(.roundedBorder)
+            editableTextArea("正文说明", text: $editableFields.narrativeText, minHeight: 96)
+            editableTextArea("补充说明", text: $editableFields.additionalNotes, minHeight: 72)
+        }
+    }
+
+    private var rectificationReplyFields: some View {
+        Group {
+            TextField("项目名称", text: $editableFields.projectName)
+                .textFieldStyle(.roundedBorder)
+            TextField("受检单位", text: $editableFields.inspectedUnit)
+                .textFieldStyle(.roundedBorder)
+            TextField("检查时间", text: $editableFields.inspectionDate)
+                .textFieldStyle(.roundedBorder)
+            editableTextArea("正文说明", text: $editableFields.narrativeText, minHeight: 96)
+            TextField("整改负责人", text: $editableFields.rectificationResponsiblePerson)
+                .textFieldStyle(.roundedBorder)
+            TextField("安全总监", text: $editableFields.safetyDirector)
+                .textFieldStyle(.roundedBorder)
+            TextField("项目负责人", text: $editableFields.projectManager)
+                .textFieldStyle(.roundedBorder)
+            TextField("复查人", text: $editableFields.reviewer)
+                .textFieldStyle(.roundedBorder)
+            TextField("日期", text: $editableFields.signatureDate)
+                .textFieldStyle(.roundedBorder)
+            editableTextArea("复查意见", text: $editableFields.reviewOpinion, minHeight: 72)
+            editableTextArea("补充说明", text: $editableFields.additionalNotes, minHeight: 72)
+        }
+    }
+
+    private var safetyEducationFields: some View {
+        Group {
+            TextField("教育主题", text: $editableFields.educationTopic)
+                .textFieldStyle(.roundedBorder)
+            TextField("教育时间", text: $editableFields.educationDate)
+                .textFieldStyle(.roundedBorder)
+            TextField("教育地点", text: $editableFields.educationLocation)
+                .textFieldStyle(.roundedBorder)
+            TextField("主讲人", text: $editableFields.lecturer)
+                .textFieldStyle(.roundedBorder)
+            TextField("参加人员", text: $editableFields.participants, axis: .vertical)
+                .lineLimit(1...4)
+                .textFieldStyle(.roundedBorder)
+            editableTextArea("教育内容", text: $editableFields.educationContent, minHeight: 96)
+            editableTextArea("正文说明", text: $editableFields.narrativeText, minHeight: 72)
+            TextField("日期", text: $editableFields.signatureDate)
+                .textFieldStyle(.roundedBorder)
+            editableTextArea("补充说明", text: $editableFields.additionalNotes, minHeight: 72)
+        }
+    }
+
+    private var monthlyReportFields: some View {
+        Group {
+            TextField("月份", text: $editableFields.reportMonth)
+                .textFieldStyle(.roundedBorder)
+            TextField("本月检查次数", text: $editableFields.monthlyInspectionCount)
+                .textFieldStyle(.roundedBorder)
+            TextField("本月隐患数量", text: $editableFields.monthlyHazardCount)
+                .textFieldStyle(.roundedBorder)
+            TextField("已整改数量", text: $editableFields.monthlyRectifiedCount)
+                .textFieldStyle(.roundedBorder)
+            TextField("未整改数量", text: $editableFields.monthlyUnrectifiedCount)
+                .textFieldStyle(.roundedBorder)
+            TextField("教育培训次数", text: $editableFields.monthlyEducationCount)
+                .textFieldStyle(.roundedBorder)
+            editableTextArea("正文说明", text: $editableFields.narrativeText, minHeight: 96)
+            editableTextArea("下月计划", text: $editableFields.nextMonthPlan, minHeight: 72)
+            editableTextArea("补充说明", text: $editableFields.additionalNotes, minHeight: 72)
+        }
+    }
+
+    private func editableTextArea(_ title: String, text: Binding<String>, minHeight: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            TextEditor(text: text)
+                .frame(minHeight: minHeight)
+                .padding(6)
+                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
     }
 
     private var moduleManagement: some View {
@@ -334,6 +420,11 @@ struct ReportTemplateEditorView: View {
     private func loadInitialTemplate() {
         guard !didLoadInitialTemplate else { return }
         didLoadInitialTemplate = true
+        if savedTemplates.isEmpty {
+            let defaultTemplate = ReportTemplatePresets.defaultTemplate(for: selectedDocumentKind)
+            savedTemplates = [defaultTemplate]
+            SavedReportTemplateStore.save(savedTemplates)
+        }
         guard let first = savedTemplates.first else { return }
         selectedTemplateID = first.id
         apply(savedTemplate: first)
@@ -344,14 +435,30 @@ struct ReportTemplateEditorView: View {
         apply(savedTemplate: saved)
     }
 
+    private func loadTemplateForDocumentKind(_ kind: ReportDocumentKind) {
+        if let first = savedTemplates.first(where: { $0.documentKind == kind }) {
+            selectedTemplateID = first.id
+            apply(savedTemplate: first)
+            return
+        }
+
+        let saved = ReportTemplatePresets.defaultTemplate(for: kind)
+        savedTemplates.insert(saved, at: 0)
+        SavedReportTemplateStore.save(savedTemplates)
+        selectedTemplateID = saved.id
+        apply(savedTemplate: saved)
+        templateStatusMessage = "已创建\(kind.displayName)默认模板"
+    }
+
     private func apply(savedTemplate: SavedReportTemplate) {
         template = savedTemplate.template
         template.name = savedTemplate.name
         editableFields = resolvedEditableFields(for: savedTemplate)
+        selectedDocumentKind = savedTemplate.documentKind
         selectedTemplateID = savedTemplate.id
         templateName = savedTemplate.name
         templateDescription = savedTemplate.description ?? ""
-        templateStatusMessage = "已加载：\(savedTemplate.name)"
+        templateStatusMessage = "已加载：\(savedTemplate.name) · \(savedTemplate.documentKind.displayName)"
     }
 
     private func resolvedEditableFields(for savedTemplate: SavedReportTemplate) -> ReportTemplateEditableFields {
@@ -385,6 +492,7 @@ struct ReportTemplateEditorView: View {
             id: newTemplate.id,
             name: newTemplate.name,
             description: templateDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : templateDescription,
+            documentKind: selectedDocumentKind,
             template: newTemplate,
             editableFields: editableFields
         )
@@ -403,6 +511,7 @@ struct ReportTemplateEditorView: View {
             id: selectedTemplateID,
             name: name,
             description: description.isEmpty ? nil : description,
+            documentKind: selectedDocumentKind,
             template: template,
             editableFields: editableFields,
             updatedAt: Date()
@@ -423,15 +532,15 @@ struct ReportTemplateEditorView: View {
         savedTemplates.removeAll { $0.id == selectedTemplateID }
         SavedReportTemplateStore.save(savedTemplates)
         savedTemplates = SavedReportTemplateStore.load()
-        if let first = savedTemplates.first {
+        if let first = savedTemplates.first(where: { $0.documentKind == selectedDocumentKind }) ?? savedTemplates.first {
             apply(savedTemplate: first)
         }
         templateStatusMessage = "模板已删除"
     }
 
     private func nextTemplateName() -> String {
-        let base = "新模板"
-        var index = savedTemplates.count + 1
+        let base = "\(selectedDocumentKind.displayName)模板"
+        var index = templatesForSelectedKind.count + 1
         var name = "\(base) \(index)"
         let existingNames = Set(savedTemplates.map(\.name))
         while existingNames.contains(name) {
@@ -445,7 +554,8 @@ struct ReportTemplateEditorView: View {
         ReportTemplateValidator.validate(
             template: template,
             previewData: previewData,
-            editableFields: editableFields
+            editableFields: editableFields,
+            documentKind: selectedDocumentKind
         )
     }
 
@@ -467,7 +577,8 @@ struct ReportTemplateEditorView: View {
             let url = try ReportTemplatePDFExporter.buildTemporaryFileURL(
                 template: template,
                 previewData: previewData,
-                editableFields: editableFields
+                editableFields: editableFields,
+                documentKind: selectedDocumentKind
             )
             pdfShareItem = PDFShareItem(url: url)
         } catch {

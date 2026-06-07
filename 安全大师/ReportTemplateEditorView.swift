@@ -196,17 +196,28 @@ struct ReportTemplateEditorView: View {
 
             Divider()
 
-            if enabledModules.isEmpty {
-                ContentUnavailableView("暂无显示模块", systemImage: "doc.text")
+            if orderedModules.isEmpty {
+                ContentUnavailableView("暂无模块", systemImage: "doc.text")
                     .frame(maxWidth: .infinity, minHeight: 240)
             } else {
                 VStack(spacing: 12) {
-                    ForEach(enabledModules) { module in
+                    ForEach(Array(orderedModules.enumerated()), id: \.element.id) { index, module in
                         ReportModulePreviewView(
                             module: module,
                             previewData: previewData,
                             editableFields: editableFields,
-                            documentKind: selectedDocumentKind
+                            documentKind: selectedDocumentKind,
+                            isFirst: index == 0,
+                            isLast: index == orderedModules.count - 1,
+                            onToggleEnabled: { isEnabled in
+                                setModuleEnabled(module.id, isEnabled: isEnabled)
+                            },
+                            onMoveUp: {
+                                moveModule(at: index, by: -1)
+                            },
+                            onMoveDown: {
+                                moveModule(at: index, by: 1)
+                            }
                         )
                     }
                 }
@@ -346,16 +357,19 @@ struct ReportTemplateEditorView: View {
     }
 
     private var moduleManagement: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("模块管理")
-                .font(.headline)
-
+        DisclosureGroup {
             VStack(spacing: 10) {
                 ForEach(Array(orderedModules.enumerated()), id: \.element.id) { index, module in
                     moduleManagementRow(module: module, index: index)
                 }
             }
+            .padding(.top, 8)
+        } label: {
+            Text("模块管理")
+                .font(.headline)
         }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func moduleManagementRow(module: ReportModule, index: Int) -> some View {
@@ -414,6 +428,12 @@ struct ReportTemplateEditorView: View {
             modules[moduleIndex].sortIndex = moduleIndex
         }
         template.modules = modules
+        template.updatedAt = Date()
+    }
+
+    private func setModuleEnabled(_ moduleID: ReportModule.ID, isEnabled: Bool) {
+        guard let index = template.modules.firstIndex(where: { $0.id == moduleID }) else { return }
+        template.modules[index].isEnabled = isEnabled
         template.updatedAt = Date()
     }
 

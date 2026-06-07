@@ -10,18 +10,92 @@ struct ReportModulePreviewView: View {
     let previewData: ReportTemplatePreviewData
     let editableFields: ReportTemplateEditableFields
     var documentKind: ReportDocumentKind = .rectificationReply
+    var isFirst: Bool = false
+    var isLast: Bool = false
+    var onToggleEnabled: ((Bool) -> Void)?
+    var onMoveUp: (() -> Void)?
+    var onMoveDown: (() -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(module.title)
-                .font(.headline)
-                .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 10) {
+            toolbar
 
-            content
+            if module.isEnabled {
+                content
+            } else {
+                hiddenPlaceholder
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(
+            module.isEnabled ? Color(.secondarySystemBackground) : Color(.tertiarySystemBackground),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(module.isEnabled ? Color.clear : Color(.separator), style: StrokeStyle(lineWidth: 0.8, dash: [5, 4]))
+        )
+    }
+
+    private var toolbar: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(module.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                if !module.isEnabled {
+                    Text("已隐藏")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            if onToggleEnabled != nil {
+                Toggle("", isOn: Binding(
+                    get: { module.isEnabled },
+                    set: { onToggleEnabled?($0) }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .accessibilityLabel("\(module.title)显示隐藏")
+            }
+
+            Button {
+                onMoveUp?()
+            } label: {
+                Image(systemName: "arrow.up")
+                    .frame(width: 26, height: 26)
+            }
+            .buttonStyle(.bordered)
+            .disabled(isFirst || onMoveUp == nil)
+            .accessibilityLabel("上移\(module.title)")
+
+            Button {
+                onMoveDown?()
+            } label: {
+                Image(systemName: "arrow.down")
+                    .frame(width: 26, height: 26)
+            }
+            .buttonStyle(.bordered)
+            .disabled(isLast || onMoveDown == nil)
+            .accessibilityLabel("下移\(module.title)")
+        }
+    }
+
+    private var hiddenPlaceholder: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "eye.slash")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text("已隐藏，不会导出到 PDF")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder

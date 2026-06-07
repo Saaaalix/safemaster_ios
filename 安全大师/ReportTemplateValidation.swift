@@ -64,12 +64,14 @@ enum ReportTemplateValidator {
         issues: inout [ReportTemplateValidationIssue]
     ) {
         let infoModule = moduleTitle(.basicInfo, in: template, fallback: "基本信息")
-        appendMissingEditableFieldIssue(value: editableFields.inspectionUnit, fieldName: "检查单位", moduleTitle: infoModule, severity: .error, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.inspectedUnit, fieldName: "受检单位", moduleTitle: infoModule, severity: .error, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.inspectionDate, fieldName: "检查时间", moduleTitle: infoModule, severity: .error, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.rectificationDeadline, fieldName: "整改期限", moduleTitle: infoModule, severity: .warning, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.inspector, fieldName: "检查人", moduleTitle: infoModule, severity: .warning, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.receiver, fieldName: "接收人", moduleTitle: infoModule, severity: .warning, issues: &issues)
+        if isEnabled(.basicInfo, in: template) {
+            appendMissingEditableFieldIssue(value: editableFields.inspectionUnit, fieldName: "检查单位", moduleTitle: infoModule, severity: .error, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.inspectedUnit, fieldName: "受检单位", moduleTitle: infoModule, severity: .error, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.inspectionDate, fieldName: "检查时间", moduleTitle: infoModule, severity: .error, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.rectificationDeadline, fieldName: "整改期限", moduleTitle: infoModule, severity: .warning, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.inspector, fieldName: "检查人", moduleTitle: infoModule, severity: .warning, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.receiver, fieldName: "接收人", moduleTitle: infoModule, severity: .warning, issues: &issues)
+        }
 
         guard isEnabled(.rectificationList, in: template) else { return }
         let listModule = moduleTitle(.rectificationList, in: template, fallback: "整改清单")
@@ -91,7 +93,9 @@ enum ReportTemplateValidator {
         issues: inout [ReportTemplateValidationIssue]
     ) {
         let signatureModule = moduleTitle(.signature, in: template, fallback: "签字确认")
-        appendMissingEditableFieldIssue(value: editableFields.rectificationResponsiblePerson, fieldName: "整改负责人", moduleTitle: signatureModule, severity: .warning, issues: &issues)
+        if isEnabled(.signature, in: template) {
+            appendMissingEditableFieldIssue(value: editableFields.rectificationResponsiblePerson, fieldName: "整改负责人", moduleTitle: signatureModule, severity: .warning, issues: &issues)
+        }
 
         guard isEnabled(.rectificationList, in: template) else { return }
         let listModule = moduleTitle(.rectificationList, in: template, fallback: "整改清单")
@@ -121,12 +125,16 @@ enum ReportTemplateValidator {
         issues: inout [ReportTemplateValidationIssue]
     ) {
         let infoModule = moduleTitle(.basicInfo, in: template, fallback: "基本信息")
-        appendMissingEditableFieldIssue(value: editableFields.educationTopic, fieldName: "教育主题", moduleTitle: infoModule, severity: .error, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.educationDate, fieldName: "教育时间", moduleTitle: infoModule, severity: .error, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.educationLocation, fieldName: "教育地点", moduleTitle: infoModule, severity: .warning, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.lecturer, fieldName: "主讲人", moduleTitle: infoModule, severity: .warning, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.participants, fieldName: "参加人员或签字说明", moduleTitle: infoModule, severity: .warning, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.educationContent, fieldName: "教育内容", moduleTitle: moduleTitle(.notes, in: template, fallback: "备注"), severity: .error, issues: &issues)
+        if isEnabled(.basicInfo, in: template) {
+            appendMissingEditableFieldIssue(value: editableFields.educationTopic, fieldName: "教育主题", moduleTitle: infoModule, severity: .error, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.educationDate, fieldName: "教育时间", moduleTitle: infoModule, severity: .error, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.educationLocation, fieldName: "教育地点", moduleTitle: infoModule, severity: .warning, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.lecturer, fieldName: "主讲人", moduleTitle: infoModule, severity: .warning, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.participants, fieldName: "参加人员或签字说明", moduleTitle: infoModule, severity: .warning, issues: &issues)
+        }
+        if isEnabled(.notes, in: template) {
+            appendMissingEditableFieldIssue(value: editableFields.educationContent, fieldName: "教育内容", moduleTitle: moduleTitle(.notes, in: template, fallback: "备注"), severity: .error, issues: &issues)
+        }
     }
 
     private static func validateMonthlyReport(
@@ -136,12 +144,16 @@ enum ReportTemplateValidator {
         issues: inout [ReportTemplateValidationIssue]
     ) {
         let infoModule = moduleTitle(.basicInfo, in: template, fallback: "基本信息")
-        appendMissingEditableFieldIssue(value: editableFields.reportMonth, fieldName: "月份", moduleTitle: infoModule, severity: .error, issues: &issues)
-        if isMissing(editableFields.monthlyHazardCount), previewData.basicInfo.recordCount == 0 {
-            appendMissingEditableFieldIssue(value: editableFields.narrativeText, fieldName: "本月隐患数量或统计说明", moduleTitle: infoModule, severity: .warning, issues: &issues)
+        if isEnabled(.basicInfo, in: template) {
+            appendMissingEditableFieldIssue(value: editableFields.reportMonth, fieldName: "月份", moduleTitle: infoModule, severity: .error, issues: &issues)
+            if isMissing(editableFields.monthlyHazardCount), previewData.basicInfo.recordCount == 0 {
+                appendMissingEditableFieldIssue(value: editableFields.narrativeText, fieldName: "本月隐患数量或统计说明", moduleTitle: infoModule, severity: .warning, issues: &issues)
+            }
+            appendMissingEditableFieldIssue(value: editableFields.monthlyRectifiedCount, fieldName: "本月整改情况", moduleTitle: infoModule, severity: .warning, issues: &issues)
         }
-        appendMissingEditableFieldIssue(value: editableFields.monthlyRectifiedCount, fieldName: "本月整改情况", moduleTitle: infoModule, severity: .warning, issues: &issues)
-        appendMissingEditableFieldIssue(value: editableFields.nextMonthPlan.isEmpty ? editableFields.additionalNotes : editableFields.nextMonthPlan, fieldName: "下月计划或备注", moduleTitle: moduleTitle(.notes, in: template, fallback: "备注"), severity: .warning, issues: &issues)
+        if isEnabled(.notes, in: template) {
+            appendMissingEditableFieldIssue(value: editableFields.nextMonthPlan.isEmpty ? editableFields.additionalNotes : editableFields.nextMonthPlan, fieldName: "下月计划或备注", moduleTitle: moduleTitle(.notes, in: template, fallback: "备注"), severity: .warning, issues: &issues)
+        }
     }
 
     private static func appendTitleIssueIfNeeded(

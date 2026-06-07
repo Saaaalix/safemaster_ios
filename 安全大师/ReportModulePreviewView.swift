@@ -8,6 +8,7 @@ import SwiftUI
 struct ReportModulePreviewView: View {
     let module: ReportModule
     let previewData: ReportTemplatePreviewData
+    let editableFields: ReportTemplateEditableFields
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -27,14 +28,15 @@ struct ReportModulePreviewView: View {
         switch module.type {
         case .basicInfo:
             VStack(alignment: .leading, spacing: 6) {
-                previewRow("项目名称", previewData.basicInfo.projectName)
-                previewRow("检查单位", previewData.basicInfo.inspectionUnit)
-                previewRow("受检单位", previewData.basicInfo.inspectedUnit)
-                previewRow("检查时间", previewData.basicInfo.inspectionTime)
+                previewRow("报告标题", editableFields.displayValue(\.reportTitle))
+                previewRow("项目名称", editableFields.displayValue(\.projectName))
+                previewRow("检查单位", editableFields.displayValue(\.inspectionUnit))
+                previewRow("受检单位", editableFields.displayValue(\.inspectedUnit))
+                previewRow("检查时间", editableFields.displayValue(\.inspectionDate))
                 previewRow("记录数量", "\(previewData.basicInfo.recordCount) 项")
             }
         case .narrative:
-            Text(previewData.narrative)
+            Text(editableFields.displayValue(\.narrativeText))
                 .font(.subheadline)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -62,16 +64,16 @@ struct ReportModulePreviewView: View {
             }
         case .signature:
             VStack(alignment: .leading, spacing: 8) {
-                signatureLine("整改负责人", previewData.signature.rectificationResponsible)
-                signatureLine("安全总监", previewData.signature.safetyDirector)
-                signatureLine("项目负责人", previewData.signature.projectManager)
-                signatureLine("复查人", previewData.signature.reviewer)
-                signatureLine("日期", previewData.signature.date)
+                signatureLine("整改负责人", editableFields.displayValue(\.rectificationResponsiblePerson))
+                signatureLine("安全总监", editableFields.displayValue(\.safetyDirector))
+                signatureLine("项目负责人", editableFields.displayValue(\.projectManager))
+                signatureLine("复查人", editableFields.displayValue(\.reviewer))
+                signatureLine("日期", editableFields.displayValue(\.signatureDate))
             }
         case .notes:
             VStack(alignment: .leading, spacing: 6) {
-                previewRow("复查意见", previewData.notes.reviewOpinion)
-                previewRow("补充说明", previewData.notes.supplementaryNotes)
+                previewRow("复查意见", editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注"))
+                previewRow("补充说明", editableFields.displayValue(\.additionalNotes, fallback: "暂无备注"))
             }
         }
     }
@@ -194,7 +196,11 @@ struct ReportModulePreviewView: View {
     ScrollView {
         VStack(spacing: 12) {
             ForEach(ReportTemplate.default.enabledModules) { module in
-                ReportModulePreviewView(module: module, previewData: .sample)
+                ReportModulePreviewView(
+                    module: module,
+                    previewData: .sample,
+                    editableFields: ReportTemplateEditableFields(previewData: .sample)
+                )
             }
         }
         .padding()

@@ -8,6 +8,7 @@ import SwiftUI
 struct ReportTemplateEditorView: View {
     let previewData: ReportTemplatePreviewData
     @State private var template = ReportTemplate.default
+    @State private var editableFields: ReportTemplateEditableFields
     @State private var savedTemplates: [SavedReportTemplate]
     @State private var selectedTemplateID: SavedReportTemplate.ID
     @State private var templateName = ReportTemplate.default.name
@@ -20,6 +21,7 @@ struct ReportTemplateEditorView: View {
     init(previewData: ReportTemplatePreviewData = .sample) {
         let loadedTemplates = SavedReportTemplateStore.load()
         self.previewData = previewData
+        _editableFields = State(initialValue: ReportTemplateEditableFields(previewData: previewData))
         _savedTemplates = State(initialValue: loadedTemplates)
         _selectedTemplateID = State(initialValue: loadedTemplates.first?.id ?? ReportTemplate.default.id)
     }
@@ -42,6 +44,7 @@ struct ReportTemplateEditorView: View {
 
                 templateSelectionSection
                 a4Preview
+                editableFieldsSection
                 moduleManagement
             }
             .padding(16)
@@ -126,7 +129,7 @@ struct ReportTemplateEditorView: View {
     private var a4Preview: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(template.name)
+                Text(editableFields.displayValue(\.reportTitle, fallback: template.name))
                     .font(.title3.weight(.bold))
                 Text("A4 报告预览")
                     .font(.caption)
@@ -142,7 +145,11 @@ struct ReportTemplateEditorView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(enabledModules) { module in
-                        ReportModulePreviewView(module: module, previewData: previewData)
+                        ReportModulePreviewView(
+                            module: module,
+                            previewData: previewData,
+                            editableFields: editableFields
+                        )
                     }
                 }
             }
@@ -154,6 +161,70 @@ struct ReportTemplateEditorView: View {
         .background(Color.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 16, x: 0, y: 8)
         .padding(.horizontal, 4)
+    }
+
+    private var editableFieldsSection: some View {
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 12) {
+                TextField("报告标题", text: $editableFields.reportTitle)
+                    .textFieldStyle(.roundedBorder)
+                TextField("项目名称", text: $editableFields.projectName)
+                    .textFieldStyle(.roundedBorder)
+                TextField("检查单位", text: $editableFields.inspectionUnit)
+                    .textFieldStyle(.roundedBorder)
+                TextField("受检单位", text: $editableFields.inspectedUnit)
+                    .textFieldStyle(.roundedBorder)
+                TextField("检查时间", text: $editableFields.inspectionDate)
+                    .textFieldStyle(.roundedBorder)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("正文说明")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: $editableFields.narrativeText)
+                        .frame(minHeight: 96)
+                        .padding(6)
+                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+
+                TextField("整改负责人", text: $editableFields.rectificationResponsiblePerson)
+                    .textFieldStyle(.roundedBorder)
+                TextField("安全总监", text: $editableFields.safetyDirector)
+                    .textFieldStyle(.roundedBorder)
+                TextField("项目负责人", text: $editableFields.projectManager)
+                    .textFieldStyle(.roundedBorder)
+                TextField("复查人", text: $editableFields.reviewer)
+                    .textFieldStyle(.roundedBorder)
+                TextField("日期", text: $editableFields.signatureDate)
+                    .textFieldStyle(.roundedBorder)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("复查意见")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: $editableFields.reviewOpinion)
+                        .frame(minHeight: 72)
+                        .padding(6)
+                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("补充说明")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: $editableFields.additionalNotes)
+                        .frame(minHeight: 72)
+                        .padding(6)
+                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+            }
+            .padding(.top, 8)
+        } label: {
+            Text("报告字段编辑")
+                .font(.headline)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var moduleManagement: some View {
@@ -244,6 +315,7 @@ struct ReportTemplateEditorView: View {
     private func apply(savedTemplate: SavedReportTemplate) {
         template = savedTemplate.template
         template.name = savedTemplate.name
+        editableFields = savedTemplate.editableFields ?? ReportTemplateEditableFields(previewData: previewData, reportTitle: savedTemplate.name)
         selectedTemplateID = savedTemplate.id
         templateName = savedTemplate.name
         templateDescription = savedTemplate.description ?? ""
@@ -260,7 +332,8 @@ struct ReportTemplateEditorView: View {
             id: newTemplate.id,
             name: newTemplate.name,
             description: templateDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : templateDescription,
-            template: newTemplate
+            template: newTemplate,
+            editableFields: editableFields
         )
         savedTemplates.insert(saved, at: 0)
         SavedReportTemplateStore.save(savedTemplates)
@@ -278,6 +351,7 @@ struct ReportTemplateEditorView: View {
             name: name,
             description: description.isEmpty ? nil : description,
             template: template,
+            editableFields: editableFields,
             updatedAt: Date()
         )
         if let index = savedTemplates.firstIndex(where: { $0.id == selectedTemplateID }) {
@@ -318,7 +392,8 @@ struct ReportTemplateEditorView: View {
         do {
             let url = try ReportTemplatePDFExporter.buildTemporaryFileURL(
                 template: template,
-                previewData: previewData
+                previewData: previewData,
+                editableFields: editableFields
             )
             pdfShareItem = PDFShareItem(url: url)
         } catch {

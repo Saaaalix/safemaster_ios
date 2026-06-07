@@ -10,6 +10,7 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
     var name: String
     var description: String?
     var template: ReportTemplate
+    var editableFields: ReportTemplateEditableFields?
     var updatedAt: Date
 
     init(
@@ -17,13 +18,34 @@ struct SavedReportTemplate: Identifiable, Codable, Equatable, Hashable {
         name: String,
         description: String? = nil,
         template: ReportTemplate,
+        editableFields: ReportTemplateEditableFields? = nil,
         updatedAt: Date = Date()
     ) {
         self.id = id
         self.name = name
         self.description = description
         self.template = template
+        self.editableFields = editableFields
         self.updatedAt = updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case description
+        case template
+        case editableFields
+        case updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        template = try container.decode(ReportTemplate.self, forKey: .template)
+        editableFields = try container.decodeIfPresent(ReportTemplateEditableFields.self, forKey: .editableFields)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 
     static var defaultTemplate: SavedReportTemplate {

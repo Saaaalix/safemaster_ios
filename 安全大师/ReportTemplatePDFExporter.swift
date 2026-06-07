@@ -31,7 +31,8 @@ enum ReportTemplatePDFExporter {
 
     static func buildTemporaryFileURL(
         template: ReportTemplate,
-        previewData: ReportTemplatePreviewData
+        previewData: ReportTemplatePreviewData,
+        editableFields: ReportTemplateEditableFields
     ) throws -> URL {
         let modules = template.enabledModules
         guard !modules.isEmpty else { throw ExportError.noEnabledModules }
@@ -42,13 +43,13 @@ enum ReportTemplatePDFExporter {
             var y = margin
 
             drawParagraph(
-                template.name,
+                editableFields.displayValue(\.reportTitle, fallback: template.name),
                 font: .boldSystemFont(ofSize: 22),
                 alignment: .center,
                 y: &y,
                 context: context
             )
-            drawParagraph("报告日期：\(previewData.basicInfo.reportDate)", font: .systemFont(ofSize: 12), alignment: .center, y: &y, context: context)
+            drawParagraph("报告日期：\(editableFields.displayValue(\.signatureDate, fallback: previewData.basicInfo.reportDate))", font: .systemFont(ofSize: 12), alignment: .center, y: &y, context: context)
             y += 8
 
             for module in modules {
@@ -57,17 +58,17 @@ enum ReportTemplatePDFExporter {
 
                 switch module.type {
                 case .basicInfo:
-                    drawBasicInfo(previewData.basicInfo, y: &y, context: context)
+                    drawBasicInfo(previewData.basicInfo, editableFields: editableFields, y: &y, context: context)
                 case .narrative:
-                    drawParagraph(previewData.narrative, font: .systemFont(ofSize: 12), y: &y, context: context)
+                    drawParagraph(editableFields.displayValue(\.narrativeText), font: .systemFont(ofSize: 12), y: &y, context: context)
                 case .rectificationList:
                     drawRectificationList(previewData.rectificationItems, y: &y, context: context)
                 case .photoComparison:
                     drawPhotoComparisons(previewData.photoComparisons, y: &y, context: context)
                 case .signature:
-                    drawSignature(previewData.signature, y: &y, context: context)
+                    drawSignature(editableFields, y: &y, context: context)
                 case .notes:
-                    drawNotes(previewData.notes, y: &y, context: context)
+                    drawNotes(editableFields, y: &y, context: context)
                 }
 
                 y += 10
@@ -86,14 +87,16 @@ enum ReportTemplatePDFExporter {
 
     private static func drawBasicInfo(
         _ info: ReportBasicInfoPreviewData,
+        editableFields: ReportTemplateEditableFields,
         y: inout CGFloat,
         context: UIGraphicsPDFRendererContext
     ) {
         drawKeyValueRows([
-            ("项目名称", info.projectName),
-            ("检查单位", info.inspectionUnit),
-            ("受检单位", info.inspectedUnit),
-            ("检查时间", info.inspectionTime),
+            ("报告标题", editableFields.displayValue(\.reportTitle)),
+            ("项目名称", editableFields.displayValue(\.projectName)),
+            ("检查单位", editableFields.displayValue(\.inspectionUnit)),
+            ("受检单位", editableFields.displayValue(\.inspectedUnit)),
+            ("检查时间", editableFields.displayValue(\.inspectionDate)),
             ("记录数量", "\(info.recordCount) 项")
         ], y: &y, context: context)
     }
@@ -164,26 +167,26 @@ enum ReportTemplatePDFExporter {
     }
 
     private static func drawSignature(
-        _ signature: ReportSignaturePreviewData,
+        _ editableFields: ReportTemplateEditableFields,
         y: inout CGFloat,
         context: UIGraphicsPDFRendererContext
     ) {
         drawKeyValueRows([
-            ("整改负责人", signature.rectificationResponsible),
-            ("安全总监", signature.safetyDirector),
-            ("项目负责人", signature.projectManager),
-            ("复查人", signature.reviewer),
-            ("日期", signature.date)
+            ("整改负责人", editableFields.displayValue(\.rectificationResponsiblePerson)),
+            ("安全总监", editableFields.displayValue(\.safetyDirector)),
+            ("项目负责人", editableFields.displayValue(\.projectManager)),
+            ("复查人", editableFields.displayValue(\.reviewer)),
+            ("日期", editableFields.displayValue(\.signatureDate))
         ], y: &y, context: context)
     }
 
     private static func drawNotes(
-        _ notes: ReportNotesPreviewData,
+        _ editableFields: ReportTemplateEditableFields,
         y: inout CGFloat,
         context: UIGraphicsPDFRendererContext
     ) {
-        drawLabeledBlock(title: "复查意见", body: notes.reviewOpinion, y: &y, context: context)
-        drawLabeledBlock(title: "补充说明", body: notes.supplementaryNotes, y: &y, context: context)
+        drawLabeledBlock(title: "复查意见", body: editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注"), y: &y, context: context)
+        drawLabeledBlock(title: "补充说明", body: editableFields.displayValue(\.additionalNotes, fallback: "暂无备注"), y: &y, context: context)
     }
 
     private static func drawKeyValueRows(

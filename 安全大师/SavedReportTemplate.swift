@@ -74,15 +74,22 @@ enum SavedReportTemplateStore {
         else {
             let presets = ReportTemplatePresets.builtInTemplates
             save(presets)
+            logLoadedTemplates(presets)
             return presets
         }
         let normalized = decoded.map(normalized)
         if normalized.isEmpty {
             let presets = ReportTemplatePresets.builtInTemplates
             save(presets)
+            logLoadedTemplates(presets)
             return presets
         }
-        return normalized.sortedByUpdatedAt()
+        let templates = includingMissingBuiltInTemplates(in: normalized).sortedByUpdatedAt()
+        if templates.count != normalized.count {
+            save(templates)
+        }
+        logLoadedTemplates(templates)
+        return templates
     }
 
     static func save(_ templates: [SavedReportTemplate]) {
@@ -105,6 +112,29 @@ enum SavedReportTemplateStore {
         }
         copy.template.modules = copy.template.modules.sorted { $0.sortIndex < $1.sortIndex }
         return copy
+    }
+
+    private static func includingMissingBuiltInTemplates(in templates: [SavedReportTemplate]) -> [SavedReportTemplate] {
+        var result = templates
+        for preset in ReportTemplatePresets.builtInTemplates {
+            let hasSameBuiltInTemplate = result.contains {
+                $0.documentKind == preset.documentKind && $0.name == preset.name
+            }
+            if !hasSameBuiltInTemplate {
+                result.append(preset)
+            }
+        }
+        return result
+    }
+
+    private static func logLoadedTemplates(_ templates: [SavedReportTemplate]) {
+#if DEBUG
+        let kinds = Dictionary(grouping: templates, by: \.documentKind)
+            .map { "\($0.key.displayName)=\($0.value.count)" }
+            .sorted()
+            .joined(separator: ", ")
+        print("[ReportTemplate] loaded templates: count=\(templates.count), kinds=\(kinds)")
+#endif
     }
 }
 

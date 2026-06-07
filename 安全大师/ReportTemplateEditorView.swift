@@ -23,11 +23,15 @@ struct ReportTemplateEditorView: View {
 
     init(previewData: ReportTemplatePreviewData = .sample) {
         let loadedTemplates = SavedReportTemplateStore.load()
+        let firstTemplate = loadedTemplates.first
         self.previewData = previewData
-        _editableFields = State(initialValue: ReportTemplateEditableFields(previewData: previewData))
+        _template = State(initialValue: firstTemplate?.template ?? ReportTemplate.default)
+        _editableFields = State(initialValue: firstTemplate?.editableFields ?? ReportTemplateEditableFields(previewData: previewData, reportTitle: firstTemplate?.documentKind.defaultReportTitle ?? ReportDocumentKind.rectificationReply.defaultReportTitle))
         _savedTemplates = State(initialValue: loadedTemplates)
-        _selectedTemplateID = State(initialValue: loadedTemplates.first?.id ?? ReportTemplate.default.id)
-        _selectedDocumentKind = State(initialValue: loadedTemplates.first?.documentKind ?? .rectificationReply)
+        _selectedTemplateID = State(initialValue: firstTemplate?.id ?? ReportTemplate.default.id)
+        _selectedDocumentKind = State(initialValue: firstTemplate?.documentKind ?? .rectificationReply)
+        _templateName = State(initialValue: firstTemplate?.name ?? ReportDocumentKind.rectificationReply.displayName)
+        _templateDescription = State(initialValue: firstTemplate?.description ?? "")
     }
 
     private var orderedModules: [ReportModule] {
@@ -42,10 +46,18 @@ struct ReportTemplateEditorView: View {
         savedTemplates.filter { $0.documentKind == selectedDocumentKind }
     }
 
+    private var currentReportTitle: String {
+        let title = editableFields.reportTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if title.isEmpty || title == "默认模板" {
+            return selectedDocumentKind.defaultReportTitle
+        }
+        return title
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("选择报告中需要展示的模块，并调整顺序")
+                Text("选择文书类型和模板，编辑字段后可检查并导出 PDF。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -58,7 +70,7 @@ struct ReportTemplateEditorView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("报告模板编辑")
+        .navigationTitle("文书生成")
         .inlineNavigationTitleMode()
         .onAppear(perform: loadInitialTemplate)
         .toolbar {
@@ -113,14 +125,19 @@ struct ReportTemplateEditorView: View {
             Text("模板管理")
                 .font(.headline)
 
-            Picker("文书类型", selection: $selectedDocumentKind) {
-                ForEach(ReportDocumentKind.allCases) { kind in
-                    Text(kind.displayName).tag(kind)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("文书类型")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Picker("文书类型", selection: $selectedDocumentKind) {
+                    ForEach(ReportDocumentKind.allCases) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
                 }
-            }
-            .pickerStyle(.menu)
-            .onChange(of: selectedDocumentKind) { _, kind in
-                loadTemplateForDocumentKind(kind)
+                .pickerStyle(.menu)
+                .onChange(of: selectedDocumentKind) { _, kind in
+                    loadTemplateForDocumentKind(kind)
+                }
             }
 
             Text(selectedDocumentKind.summary)
@@ -128,8 +145,24 @@ struct ReportTemplateEditorView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField("模板名称", text: $templateName)
-                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("模板")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                Picker("模板", selection: $selectedTemplateID) {
+                    ForEach(templatesForSelectedKind) { item in
+                        Text(item.name).tag(item.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: selectedTemplateID) { _, id in
+                    loadTemplate(id: id)
+                }
+
+                TextField("模板名称", text: $templateName)
+                    .textFieldStyle(.roundedBorder)
+            }
 
             TextField("模板描述（可选）", text: $templateDescription, axis: .vertical)
                 .lineLimit(1...3)
@@ -139,16 +172,6 @@ struct ReportTemplateEditorView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Picker("选择模板", selection: $selectedTemplateID) {
-                ForEach(templatesForSelectedKind) { item in
-                    Text(item.name).tag(item.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .onChange(of: selectedTemplateID) { _, id in
-                loadTemplate(id: id)
             }
 
             HStack(spacing: 10) {
@@ -169,6 +192,19 @@ struct ReportTemplateEditorView: View {
                 .disabled(savedTemplates.count <= 1)
             }
 
+            HStack(spacing: 10) {
+                Button("检查报告") {
+                    checkReport()
+                }
+                .buttonStyle(.bordered)
+
+                Button("分享 PDF") {
+                    requestPDFShare()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(enabledModules.isEmpty)
+            }
+
             if let templateStatusMessage {
                 Text(templateStatusMessage)
                     .font(.caption)
@@ -186,9 +222,12 @@ struct ReportTemplateEditorView: View {
     private var a4Preview: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(editableFields.displayValue(\.reportTitle, fallback: template.name))
+                Text(currentReportTitle)
                     .font(.title3.weight(.bold))
-                Text("A4 报告预览")
+                Text("模板：\(templateName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? selectedDocumentKind.displayName : templateName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("A4 文书预览")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -484,6 +523,9 @@ struct ReportTemplateEditorView: View {
     private func resolvedEditableFields(for savedTemplate: SavedReportTemplate) -> ReportTemplateEditableFields {
         var fields = savedTemplate.editableFields ?? ReportTemplateEditableFields(previewData: previewData, reportTitle: savedTemplate.name)
         let defaults = ReportTemplateEditableFields(previewData: previewData, reportTitle: fields.reportTitle)
+        if fields.reportTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fields.reportTitle == "默认模板" {
+            fields.reportTitle = savedTemplate.documentKind.defaultReportTitle
+        }
         if fields.projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fields.projectName == "未填写" {
             fields.projectName = defaults.projectName
         }

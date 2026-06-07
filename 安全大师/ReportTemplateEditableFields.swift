@@ -20,6 +20,36 @@ struct ReportTemplateEditableFields: Codable, Equatable, Hashable {
     var reviewOpinion: String
     var additionalNotes: String
 
+    init(
+        projectName: String,
+        inspectionUnit: String,
+        inspectedUnit: String,
+        inspectionDate: String,
+        reportTitle: String,
+        narrativeText: String,
+        rectificationResponsiblePerson: String,
+        safetyDirector: String,
+        projectManager: String,
+        reviewer: String,
+        signatureDate: String,
+        reviewOpinion: String,
+        additionalNotes: String
+    ) {
+        self.projectName = projectName
+        self.inspectionUnit = inspectionUnit
+        self.inspectedUnit = inspectedUnit
+        self.inspectionDate = inspectionDate
+        self.reportTitle = reportTitle
+        self.narrativeText = narrativeText
+        self.rectificationResponsiblePerson = rectificationResponsiblePerson
+        self.safetyDirector = safetyDirector
+        self.projectManager = projectManager
+        self.reviewer = reviewer
+        self.signatureDate = signatureDate
+        self.reviewOpinion = reviewOpinion
+        self.additionalNotes = additionalNotes
+    }
+
     init(previewData: ReportTemplatePreviewData, reportTitle: String = "安全隐患整改报告") {
         self.projectName = previewData.basicInfo.projectName
         self.inspectionUnit = previewData.basicInfo.inspectionUnit

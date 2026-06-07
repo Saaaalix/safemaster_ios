@@ -87,6 +87,12 @@ struct ReportTemplateEditorView: View {
             TextField("模板描述（可选）", text: $templateDescription, axis: .vertical)
                 .lineLimit(1...3)
                 .textFieldStyle(.roundedBorder)
+            if !templateDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(templateDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Picker("选择模板", selection: $selectedTemplateID) {
                 ForEach(savedTemplates) { item in
@@ -315,11 +321,32 @@ struct ReportTemplateEditorView: View {
     private func apply(savedTemplate: SavedReportTemplate) {
         template = savedTemplate.template
         template.name = savedTemplate.name
-        editableFields = savedTemplate.editableFields ?? ReportTemplateEditableFields(previewData: previewData, reportTitle: savedTemplate.name)
+        editableFields = resolvedEditableFields(for: savedTemplate)
         selectedTemplateID = savedTemplate.id
         templateName = savedTemplate.name
         templateDescription = savedTemplate.description ?? ""
         templateStatusMessage = "已加载：\(savedTemplate.name)"
+    }
+
+    private func resolvedEditableFields(for savedTemplate: SavedReportTemplate) -> ReportTemplateEditableFields {
+        var fields = savedTemplate.editableFields ?? ReportTemplateEditableFields(previewData: previewData, reportTitle: savedTemplate.name)
+        let defaults = ReportTemplateEditableFields(previewData: previewData, reportTitle: fields.reportTitle)
+        if fields.projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fields.projectName == "未填写" {
+            fields.projectName = defaults.projectName
+        }
+        if fields.inspectionUnit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fields.inspectionUnit == "未填写" {
+            fields.inspectionUnit = defaults.inspectionUnit
+        }
+        if fields.inspectedUnit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fields.inspectedUnit == "未填写" {
+            fields.inspectedUnit = defaults.inspectedUnit
+        }
+        if fields.inspectionDate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fields.inspectionDate == "未填写" {
+            fields.inspectionDate = defaults.inspectionDate
+        }
+        if fields.signatureDate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fields.signatureDate == "未填写" {
+            fields.signatureDate = defaults.signatureDate
+        }
+        return fields
     }
 
     private func createTemplate() {

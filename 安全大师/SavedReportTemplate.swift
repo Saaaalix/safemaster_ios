@@ -66,10 +66,17 @@ enum SavedReportTemplateStore {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
               let decoded = try? JSONDecoder().decode([SavedReportTemplate].self, from: data)
         else {
-            return [SavedReportTemplate.defaultTemplate]
+            let presets = ReportTemplatePresets.builtInTemplates
+            save(presets)
+            return presets
         }
         let normalized = decoded.map(normalized)
-        return normalized.isEmpty ? [SavedReportTemplate.defaultTemplate] : normalized.sortedByUpdatedAt()
+        if normalized.isEmpty {
+            let presets = ReportTemplatePresets.builtInTemplates
+            save(presets)
+            return presets
+        }
+        return normalized.sortedByUpdatedAt()
     }
 
     static func save(_ templates: [SavedReportTemplate]) {

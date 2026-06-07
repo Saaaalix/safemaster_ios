@@ -45,7 +45,11 @@
 	<key>NSCameraUsageDescription</key>
 	<string>用于拍摄施工现场照片，便于隐患识别。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>用于从相册选择现场照片以进行隐患排查。</string>
+	<string>安全大师需要访问相册，用于保存隐患排查和整改照片。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>安全大师需要添加照片到相册，用于归档隐患排查和整改照片。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>用于在现场照片上叠加时间与定位水印，提升隐患整改证据链可信度。</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>用于在「限期整改」且您选择加入日程时，将整改截止日期写入系统日历提醒。</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

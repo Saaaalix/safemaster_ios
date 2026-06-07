@@ -48,17 +48,39 @@ enum RectificationClosureSummary: Equatable {
             return "第 \(r) 轮未通过，待开新轮"
         }
     }
+
+    var compactBadgeText: String {
+        switch self {
+        case .notStarted:
+            return "待安排"
+        case .inProgress(let r):
+            return "第 \(r) 轮整改中"
+        case .awaitingVerification(let r):
+            return "第 \(r) 轮待验收"
+        case .closed(let r):
+            return "第 \(r) 轮已闭环"
+        case .failedPendingNewRound(let r):
+            return "第 \(r) 轮未通过"
+        }
+    }
 }
 
 extension InspectionFinding {
     var rectificationRoundsArray: [RectificationRound] {
         guard let raw = rectificationRounds else { return [] }
-        let ordered = raw as? NSOrderedSet ?? NSOrderedSet()
-        return ordered.compactMap { $0 as? RectificationRound }
+        return raw
+            .compactMap { $0 as? RectificationRound }
+            .sorted { $0.roundIndex < $1.roundIndex }
     }
 
     var latestRectificationRound: RectificationRound? {
         rectificationRoundsArray.last
+    }
+
+    /// 子实体 `RectificationRound` 状态变更时通知 SwiftUI / FRC：父记录的 to-many 关系已更新。
+    func notifyRectificationRelationshipChanged() {
+        willChangeValue(forKey: #keyPath(InspectionFinding.rectificationRounds))
+        didChangeValue(forKey: #keyPath(InspectionFinding.rectificationRounds))
     }
 
     var rectificationClosureSummary: RectificationClosureSummary {
@@ -76,6 +98,27 @@ extension InspectionFinding {
         }
     }
 
+    /// 最近一轮验收已通过（`rectificationClosureSummary == .closed`）。
+    var isRectificationClosed: Bool {
+        if case .closed = rectificationClosureSummary { return true }
+        return false
+    }
+
+    /// 待整改：未闭环（含未开整改、整改中、待验收、验收未通过待新轮）。
+    var isPendingRectification: Bool {
+        !isRectificationClosed
+    }
+
+    /// 整改流程列表口径：只要未闭环就应进入整改流程，字段完整性留给正式报告导出前校验。
+    var shouldAppearInRectificationWorkflow: Bool {
+        isPendingRectification
+    }
+
+    /// 待整改（用于整改功能计数）：仅统计已确认隐患详情且未闭环的记录。
+    var isPendingRectificationAfterDetailConfirmed: Bool {
+        hasConfirmedDetailFields && isPendingRectification
+    }
+
     /// 新建第一轮整改（立即 / 限期）。
     @discardableResult
     func startFirstRectificationRound(
@@ -85,12 +128,13 @@ extension InspectionFinding {
     ) -> RectificationRound? {
         guard rectificationRoundsArray.isEmpty else { return nil }
         let round = RectificationRound(context: context)
-        round.finding = self
         round.createdAt = Date()
         round.roundIndex = 1
         round.mode = mode.rawValue
         round.status = RectificationStatus.inProgress.rawValue
         round.plannedDueAt = mode == .scheduled ? plannedDueAt : nil
+        addToRectificationRounds(round)
+        notifyRectificationRelationshipChanged()
         return round
     }
 
@@ -102,13 +146,14 @@ extension InspectionFinding {
         else { return nil }
         let nextIndex = Int32(rectificationRoundsArray.map { Int($0.roundIndex) }.max() ?? 0) + 1
         let round = RectificationRound(context: context)
-        round.finding = self
         round.createdAt = Date()
         round.roundIndex = nextIndex
         round.mode = latest.mode ?? RectificationMode.scheduled.rawValue
         round.plannedDueAt = latest.plannedDueAt
         round.responsibleParty = latest.responsibleParty
         round.status = RectificationStatus.inProgress.rawValue
+        addToRectificationRounds(round)
+        notifyRectificationRelationshipChanged()
         return round
     }
 }
@@ -122,12 +167,20 @@ extension RectificationRound {
         RectificationMode(rawValue: mode ?? "") ?? .scheduled
     }
 
+    private func notifyParentRectificationChanged() {
+        finding?.notifyRectificationRelationshipChanged()
+    }
+
     func submitForVerification() throws {
         let text = (actionTaken ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             throw RectificationSaveError.missingActionDescription
         }
+        guard let photo = evidencePhotoData, !photo.isEmpty else {
+            throw RectificationSaveError.missingEvidencePhoto
+        }
         status = RectificationStatus.pendingVerification.rawValue
+        notifyParentRectificationChanged()
     }
 
     func markVerificationPassed(note: String?) throws {
@@ -135,6 +188,7 @@ extension RectificationRound {
         verifiedAt = Date()
         let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         verifierNote = trimmed.isEmpty ? nil : trimmed
+        notifyParentRectificationChanged()
     }
 
     func markVerificationFailed(note: String) throws {
@@ -145,17 +199,21 @@ extension RectificationRound {
         status = RectificationStatus.failed.rawValue
         verifiedAt = Date()
         verifierNote = trimmed
+        notifyParentRectificationChanged()
     }
 }
 
 enum RectificationSaveError: LocalizedError {
     case missingActionDescription
+    case missingEvidencePhoto
     case missingFailReason
 
     var errorDescription: String? {
         switch self {
         case .missingActionDescription:
             return "请先填写「实际整改说明」后再提交验收。"
+        case .missingEvidencePhoto:
+            return "请先上传「整改后照片」后再提交验收。"
         case .missingFailReason:
             return "验收不通过时请填写原因说明。"
         }

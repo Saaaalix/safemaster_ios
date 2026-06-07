@@ -20,7 +20,7 @@ struct CameraImagePicker: UIViewControllerRepresentable {
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let img = info[.originalImage] as? UIImage {
-                parent.imageData = img.jpegData(compressionQuality: 0.85)
+                parent.imageData = Data.optimizedPhotoStorageData(from: img) ?? img.jpegData(compressionQuality: 0.85)
             }
             parent.dismiss()
         }

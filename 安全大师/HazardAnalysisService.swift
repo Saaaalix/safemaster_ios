@@ -53,8 +53,9 @@ struct MockHazardAnalysisService: HazardAnalysisService {
         let place = location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "该作业区域" : location
         let contextHint = hasPhoto ? "结合现场影像" : "根据文字描述"
         return HazardAnalysisResult(
-            hazardDescription: "\(contextHint)，在「\(place)」可见典型建筑施工安全隐患：洞口或临边防护不到位、警示标识缺失，存在人员坠落或物体打击可能。",
-            rectificationMeasures: "1. 立即设置符合 JGJ 80 要求的临边/洞口防护栏杆及安全网。\n2. 补充夜间与通道口警示灯及反光标识。\n3. 作业前安全技术交底并设专人巡查。",
+            hazardDescription: "\(contextHint)，「\(place)」存在临边或洞口防护不到位、警示标识不清的问题，人员经过或作业时有坠落、绊倒风险。",
+            rectificationMeasures: "1. 对临边或洞口设置防护栏杆、挡脚板和安全网。\n2. 在通道口、临边位置补充醒目的警示标识。\n3. 整改完成后拍照留存，由现场负责人复查确认。",
+            rectificationReplyDraft: "已对临边或洞口位置设置防护栏杆、挡脚板和安全网，通道口警示标识已补齐。整改后现场已拍照留存，并由现场负责人复查确认。",
             riskLevel: "较大风险",
             accidentCategoryMajor: "高处与建筑施工类",
             accidentCategoryMinor: "高处坠落",

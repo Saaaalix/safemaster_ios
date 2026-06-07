@@ -5,22 +5,36 @@
 
 import Foundation
 
-/// 隐患识别页「整改安排」：仅立即 / 限期；保存时均会建立第 1 轮整改。
+/// 离线/手工保存时写入分析结论的标记，供列表「待补分析」识别。
+enum HazardOfflineMarkers {
+    static let recordPrefix = "【离线/手工记录】"
+}
+
+/// 隐患识别页「整改安排」：立即处理，或先保存后在详情里安排。
 enum HazardRectificationIntent: String, Hashable, CaseIterable {
     case immediate
     case scheduled
 
     var shortLabel: String {
         switch self {
-        case .immediate: return "立即"
-        case .scheduled: return "限期"
+        case .immediate: return "立即整改"
+        case .scheduled: return "稍后安排"
         }
     }
+}
+
+enum SafetyInspectionScene: String, Hashable, CaseIterable {
+    case dormitory = "生活区/宿舍"
+    case office = "办公区"
+    case construction = "施工现场"
+    case other = "其他"
 }
 
 struct HazardAnalysisResult: Equatable, Hashable {
     var hazardDescription: String
     var rectificationMeasures: String
+    /// 整改闭环「一键采用」草稿；分析时生成，写入 `InspectionFinding`，不自动写入 `actionTaken`。
+    var rectificationReplyDraft: String = ""
     var riskLevel: String
     /// 对应《企业职工伤亡事故分类》等常用归类：六大类之一。
     var accidentCategoryMajor: String
@@ -38,14 +52,22 @@ struct HazardResultPayload: Hashable {
     var analysis: HazardAnalysisResult
     /// 与排查页「整改安排」一致；默认立即。
     var rectificationIntent: HazardRectificationIntent = .immediate
-    /// 限期整改时的计划完成日；仅 `rectificationIntent == .scheduled` 时使用。
+    /// 稍后安排时的计划完成日；识别页可为空，详情页再补。
     var rectificationPlannedDueAt: Date?
     /// 立即整改：在识别页填写的现场说明（写入第 1 轮 `actionTaken`）。
     var prefillRectificationActionNote: String = ""
     /// 立即整改：在识别页选择的整改后/现场照片（写入第 1 轮 `evidencePhotoData`）。
     var prefillRectificationPhotoData: Data?
-    /// 限期整改：是否在保存成功后写入系统日历提醒。
+    /// 稍后安排时：如已选择计划完成日，可在保存成功后写入系统日历提醒。
     var addDeadlineToDeviceCalendar: Bool = false
+    /// 用户口述或识别页手选的风险等级；写入 Core Data 时优先于 `analysis.riskLevel`。
+    var userRiskLevelOverride: String? = nil
+    /// 用户选择的地点分类；用于约束 AI 语境和正式报告用语。
+    var sceneType: SafetyInspectionScene = .construction
+    /// 识别页当次填写的项目名称（快照写入 Core Data，与 UserDefaults 封面设置解耦展示）。
+    var reportProjectName: String? = nil
+    /// 识别页当次填写的检查人。
+    var reportInspectorName: String? = nil
 }
 
 extension HazardResultPayload {
@@ -67,14 +89,26 @@ extension HazardAnalysisResult {
 
         let hazard: String
         if userDesc.isEmpty {
-            hazard = "【离线/手工记录】\(place)。\(photoNote)隐患情况以照片为准，请后续补充文字说明或重新分析。"
+            hazard = "\(HazardOfflineMarkers.recordPrefix)\(place)。\(photoNote)隐患情况以照片为准，请后续补充文字说明或重新分析。"
         } else {
-            hazard = "【离线/手工记录】地点：\(place)。\(photoNote)\n现场简述：\(userDesc)"
+            hazard = "\(HazardOfflineMarkers.recordPrefix)地点：\(place)。\(photoNote)\n现场简述：\(userDesc)"
+        }
+
+        let draft: String
+        if userDesc.isEmpty {
+            draft = hasPhoto
+                ? "已按现场情况完成初步整改，整改后照片见附件，具体措施待联网重新分析后核对。"
+                : ""
+        } else {
+            draft = hasPhoto
+                ? "已针对「\(userDesc)」落实现场整改并完成复查，整改后照片见附件。"
+                : "已针对「\(userDesc)」落实整改，具体措施待联网重新分析后核对。"
         }
 
         return HazardAnalysisResult(
             hazardDescription: hazard,
-            rectificationMeasures: "（待联网后使用「开始排查」对同类内容重新分析以生成措施，或在记录详情中手填。）",
+            rectificationMeasures: "（待联网后使用「AI 辅助分析」对同类内容重新分析以生成措施，或在记录详情中手填。）",
+            rectificationReplyDraft: draft,
             riskLevel: "一般风险",
             accidentCategoryMajor: "",
             accidentCategoryMinor: "",

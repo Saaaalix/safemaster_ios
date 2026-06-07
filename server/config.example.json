@@ -4,7 +4,18 @@
   "dbUser": "safemaster",
   "dbPassword": "请填写数据库密码",
   "dbName": "safemaster",
+  "lawsDir": "/www/wwwroot/safemaster-api/server/laws",
+  "activeLawDomain": "construction",
   "deepseekApiKey": "可选：与 MySQL 同文件时填写；更推荐在 PM2/系统环境变量中设置 DEEPSEEK_API_KEY（勿把真密钥提交到 Git）",
   "planMonthlyPriceCNY": 48,
-  "planDailyLimit": 20
+  "planDailyLimit": 20,
+  "planDailyAIUnitLimit": 200,
+  "aiUnitTokens": 1000,
+  "trustProxy": true,
+  "rateLimitAuthWindowMs": 900000,
+  "rateLimitAuthMax": 40,
+  "rateLimitAnalyzeWindowMs": 300000,
+  "rateLimitAnalyzeMax": 20,
+  "rateLimitCreditsWindowMs": 300000,
+  "rateLimitCreditsMax": 60
 }

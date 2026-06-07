@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "updated_at": "2026-05-27",
+  "basis": {
+    "file": "laws_basis.jsonl.gz",
+    "bytes": 14338406,
+    "gzip_bytes": 1640562,
+    "sha256": "8ccbe3fca8262b44ea6c1dd0755027c7330e0fafd84ab74142085ed533774462",
+    "records": 11630
+  },
+  "playbook": {
+    "file": "laws_playbook.jsonl.gz",
+    "bytes": 453881,
+    "gzip_bytes": 54063,
+    "sha256": "760e9cb74997bfafd7e2be6e5ce98693dee2de962c92a3c8a96f40e8aa23a835",
+    "records": 294
+  },
+  "notes": "123份规范JSON合并；已按住建部废止清单删除92条"
+}

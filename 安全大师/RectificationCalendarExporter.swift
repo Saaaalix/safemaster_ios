@@ -49,11 +49,8 @@ enum RectificationCalendarExporter {
         #if os(iOS)
         if #available(iOS 17.0, *) {
             return (try? await store.requestFullAccessToEvents()) ?? false
-        }
-        return await withCheckedContinuation { cont in
-            store.requestAccess(to: .event) { ok, _ in
-                cont.resume(returning: ok)
-            }
+        } else {
+            return await requestLegacyEventAccess(store)
         }
         #elseif os(macOS)
         return await withCheckedContinuation { cont in
@@ -65,5 +62,16 @@ enum RectificationCalendarExporter {
         return false
         #endif
     }
+
+    #if os(iOS)
+    @available(iOS, introduced: 4.0, deprecated: 17.0)
+    private static func requestLegacyEventAccess(_ store: EKEventStore) async -> Bool {
+        await withCheckedContinuation { cont in
+            store.requestAccess(to: .event) { ok, _ in
+                cont.resume(returning: ok)
+            }
+        }
+    }
+    #endif
     #endif
 }

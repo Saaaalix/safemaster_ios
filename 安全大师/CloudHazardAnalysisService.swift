@@ -5,7 +5,7 @@
 
 import Foundation
 
-/// 本机完成 Vision 与法规检索，模型推理由自建服务端 `POST /v1/hazard/analyze` 代调（密钥不在 App 内）。
+/// 本机仅做 Vision 摘要；法规检索与模型推理由服务端 `POST /v1/hazard/analyze` 统一处理（密钥不在 App 内）。
 struct CloudHazardAnalysisService: HazardAnalysisService {
     /// 弱网场景下避免长时间无响应：整段分析超过此时长则失败并提示使用「无网先记录」。
     private static let analysisWallClockTimeoutSeconds: UInt64 = 75
@@ -53,26 +53,6 @@ struct CloudHazardAnalysisService: HazardAnalysisService {
             try Task.checkCancellation()
         }
 
-        let place = location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "未填写" : location
-        let userExtra = text.isEmpty ? "（用户未填写补充文字）" : text
-
-        let retrievalQuery = """
-        \(place)
-        \(userExtra)
-        \(visionBlock)
-        """
-
-        try Task.checkCancellation()
-        let playbookRows = await LawEvidenceRetriever.shared.retrievePlaybook(query: retrievalQuery, topK: 8)
-        let basisRows = await LawEvidenceRetriever.shared.retrieveBasis(
-            query: retrievalQuery,
-            userEmphasis: text,
-            topK: 12
-        )
-        try Task.checkCancellation()
-        let playbookBlock = LawEvidenceRetriever.formatPlaybookBlock(playbookRows)
-        let basisBlock = LawEvidenceRetriever.formatBasisBlock(basisRows)
-
         let baseRaw = SafeMasterAPIConfiguration.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if baseRaw.isEmpty {
             throw HazardAnalysisError.cloudCredits(SafeMasterAPIError.cloudSessionMissing.errorDescription ?? "请先完成账号同步。")
@@ -90,8 +70,7 @@ struct CloudHazardAnalysisService: HazardAnalysisService {
             location: location,
             supplementaryText: supplementaryText,
             visionBlock: visionBlock,
-            playbookBlock: playbookBlock,
-            lawEvidenceBlock: basisBlock
+            industryDomain: "construction"
         )
 
         do {

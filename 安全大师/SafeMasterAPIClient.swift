@@ -27,8 +27,8 @@ enum SafeMasterAPIError: LocalizedError {
         case .decoding:
             return "无法解析服务器返回内容。"
         case .insufficientCredits(let r):
-            if let r { return "今日分析次数不足（剩余 \(r) 次）。" }
-            return "今日分析次数不足。"
+            if let r { return "今日 AI 额度不足（剩余 \(r) 点）。" }
+            return "今日 AI 额度不足。"
         case .cloudSessionMissing:
             return "请先使用 Apple 登录完成账号同步（在「我的」页面）。"
         }
@@ -82,8 +82,8 @@ struct HazardAnalyzeRequestBody: Encodable {
     var location: String
     var supplementaryText: String
     var visionBlock: String
-    var playbookBlock: String
-    var lawEvidenceBlock: String
+    /// 行业域：construction / chemical / all。当前默认 construction。
+    var industryDomain: String
 }
 
 struct CloudSubscriptionSnapshot: Decodable {
@@ -110,11 +110,118 @@ private struct HazardAnalyzeAPIResponse: Decodable {
     let analysis: HazardAnalyzeAnalysisDTO?
 }
 
+private struct ImportedNoticeParseBody: Encodable {
+    let text: String
+    let fileName: String
+}
+
+private struct ImportedNoticeParseResponse: Decodable {
+    let ok: Bool?
+    let credits: Int?
+    let error: String?
+    let draft: ImportedNoticeDraftDTO?
+}
+
+private struct ImportedNoticeFieldDTO: Decodable {
+    let value: String?
+    let confidence: Double?
+    let sourceSnippet: String?
+    let source_snippet: String?
+    let needsReview: Bool?
+    let needs_review: Bool?
+
+    func toRecognizedField(isRequired: Bool) -> ImportedNoticeRecognizedField {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let score = confidence ?? (trimmed.isEmpty ? 0 : 0.9)
+        return ImportedNoticeRecognizedField(
+            value: trimmed,
+            confidence: score,
+            sourceSnippet: sourceSnippet ?? source_snippet,
+            needsReview: isRequired && (needsReview ?? needs_review ?? (trimmed.isEmpty || score < 0.85))
+        )
+    }
+}
+
+private struct ImportedNoticeHazardDraftDTO: Decodable {
+    let location: ImportedNoticeFieldDTO?
+    let description: ImportedNoticeFieldDTO?
+    let requirement: ImportedNoticeFieldDTO?
+    let dueDate: ImportedNoticeFieldDTO?
+    let due_date: ImportedNoticeFieldDTO?
+    let responsibleParty: ImportedNoticeFieldDTO?
+    let responsible_party: ImportedNoticeFieldDTO?
+
+    func toDraft() -> ImportedNoticeHazardDraft {
+        ImportedNoticeHazardDraft(
+            location: (location ?? .empty).toRecognizedField(isRequired: false),
+            description: (description ?? .empty).toRecognizedField(isRequired: true),
+            requirement: (requirement ?? .empty).toRecognizedField(isRequired: true),
+            dueDate: (dueDate ?? due_date ?? .empty).toRecognizedField(isRequired: false),
+            responsibleParty: (responsibleParty ?? responsible_party ?? .empty).toRecognizedField(isRequired: false)
+        )
+    }
+}
+
+private struct ImportedNoticeDraftDTO: Decodable {
+    let documentType: String?
+    let document_type: String?
+    let projectName: ImportedNoticeFieldDTO?
+    let project_name: ImportedNoticeFieldDTO?
+    let issuer: ImportedNoticeFieldDTO?
+    let inspectedUnit: ImportedNoticeFieldDTO?
+    let inspected_unit: ImportedNoticeFieldDTO?
+    let noticeNo: ImportedNoticeFieldDTO?
+    let notice_no: ImportedNoticeFieldDTO?
+    let noticeDate: ImportedNoticeFieldDTO?
+    let notice_date: ImportedNoticeFieldDTO?
+    let rectificationDeadline: ImportedNoticeFieldDTO?
+    let rectification_deadline: ImportedNoticeFieldDTO?
+    let hazards: [ImportedNoticeHazardDraftDTO]?
+    let legalBasis: ImportedNoticeFieldDTO?
+    let legal_basis: ImportedNoticeFieldDTO?
+    let summary: String?
+    let confidence: Double?
+    let warnings: [String]?
+
+    func toDraft(documentID: UUID) -> ImportedNoticeDraft {
+        let typeValue = (documentType ?? document_type ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let type = ImportedNoticeDocumentType(rawValue: typeValue) ?? .hazardNotice
+        return ImportedNoticeDraft(
+            documentID: documentID,
+            documentType: type,
+            projectName: (projectName ?? project_name ?? .empty).toRecognizedField(isRequired: type.isRequired(.projectName)),
+            issuer: (issuer ?? .empty).toRecognizedField(isRequired: type.isRequired(.issuer)),
+            inspectedUnit: (inspectedUnit ?? inspected_unit ?? .empty).toRecognizedField(isRequired: type.isRequired(.inspectedUnit)),
+            noticeNo: (noticeNo ?? notice_no ?? .empty).toRecognizedField(isRequired: type.isRequired(.noticeNo)),
+            noticeDate: (noticeDate ?? notice_date ?? .empty).toRecognizedField(isRequired: type.isRequired(.noticeDate)),
+            rectificationDeadline: (rectificationDeadline ?? rectification_deadline ?? .empty).toRecognizedField(isRequired: type.isRequired(.rectificationDeadline)),
+            hazards: (hazards ?? []).map { $0.toDraft() },
+            legalBasis: (legalBasis ?? legal_basis ?? .empty).toRecognizedField(isRequired: type.isRequired(.legalBasis)),
+            summary: summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+            confidence: confidence ?? 0.9,
+            warnings: warnings ?? []
+        )
+    }
+}
+
+private extension ImportedNoticeFieldDTO {
+    static let empty = ImportedNoticeFieldDTO(
+        value: nil,
+        confidence: nil,
+        sourceSnippet: nil,
+        source_snippet: nil,
+        needsReview: nil,
+        needs_review: nil
+    )
+}
+
 private struct HazardAnalyzeAnalysisDTO: Decodable {
     let hazard_description: String?
     let hazardDescription: String?
     let rectification_measures: String?
     let rectificationMeasures: String?
+    let rectification_reply_draft: String?
+    let rectificationReplyDraft: String?
     let risk_level: String?
     let riskLevel: String?
     let accident_category_major: String?
@@ -145,6 +252,7 @@ private struct HazardAnalyzeAnalysisDTO: Decodable {
         return HazardAnalysisResult(
             hazardDescription: hazard,
             rectificationMeasures: measures,
+            rectificationReplyDraft: Self.pick(rectification_reply_draft, rectificationReplyDraft),
             riskLevel: risk.isEmpty ? "一般风险" : risk,
             accidentCategoryMajor: Self.pick(accident_category_major, accidentCategoryMajor),
             accidentCategoryMinor: Self.pick(accident_category_minor, accidentCategoryMinor),
@@ -324,6 +432,118 @@ struct SafeMasterAPIClient {
         let left = decoded.subscription?.dailyRemaining ?? decoded.credits
         guard let c = left else { throw SafeMasterAPIError.decoding }
         return CloudAccountSnapshot(remainingDailyQuota: c, subscription: decoded.subscription)
+    }
+
+    /// `POST /v1/import/extract-text`：上传文档并请求服务端提取文本（含 AI 清洗兜底）。
+    func extractImportedText(
+        accessToken: String,
+        fileURL: URL,
+        fileName: String,
+        cleanWithAI: Bool = true
+    ) async throws -> String {
+        guard let root else { throw SafeMasterAPIError.invalidBaseURL }
+        guard let url = URL(string: root.absoluteString + "/v1/import/extract-text") else {
+            throw SafeMasterAPIError.invalidBaseURL
+        }
+        let fileData = try Data(contentsOf: fileURL)
+        let boundary = "----SafeMasterBoundary-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 120
+
+        var body = Data()
+        func append(_ s: String) {
+            body.append(Data(s.utf8))
+        }
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"cleanWithAI\"\r\n\r\n")
+        append(cleanWithAI ? "1" : "0")
+        append("\r\n")
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n")
+        append("Content-Type: application/octet-stream\r\n\r\n")
+        body.append(fileData)
+        append("\r\n")
+        append("--\(boundary)--\r\n")
+        req.httpBody = body
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard let http = resp as? HTTPURLResponse else {
+            throw SafeMasterAPIError.httpError(-1, nil)
+        }
+        if !(200 ... 299).contains(http.statusCode) {
+            let fallback = String(data: data, encoding: .utf8)
+            let decoded = try? JSONDecoder().decode(APIErrorBody.self, from: data)
+            throw SafeMasterAPIError.httpError(http.statusCode, decoded?.error ?? fallback)
+        }
+        struct ImportExtractResponse: Decodable {
+            let ok: Bool?
+            let text: String?
+            let error: String?
+        }
+        let decoded = try JSONDecoder().decode(ImportExtractResponse.self, from: data)
+        if decoded.ok == false {
+            throw SafeMasterAPIError.serverMessage(decoded.error ?? "文档提取失败")
+        }
+        let text = decoded.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if text.isEmpty {
+            throw SafeMasterAPIError.serverMessage("文档提取为空")
+        }
+        return text
+    }
+
+    /// `POST /v1/import/parse-notice`：把已提取正文交给云端 AI 解析为通知单草稿字段。
+    func parseImportedNoticeDraft(
+        accessToken: String,
+        extraction: ImportedNoticeExtraction,
+        fileName: String
+    ) async throws -> ImportedNoticeDraft {
+        guard let root else { throw SafeMasterAPIError.invalidBaseURL }
+        guard let url = URL(string: root.absoluteString + "/v1/import/parse-notice") else {
+            throw SafeMasterAPIError.invalidBaseURL
+        }
+
+        let body = ImportedNoticeParseBody(
+            text: extraction.cleanedText,
+            fileName: fileName
+        )
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 120
+        req.httpBody = try JSONEncoder().encode(body)
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard let http = resp as? HTTPURLResponse else {
+            throw SafeMasterAPIError.httpError(-1, nil)
+        }
+        if !(200 ... 299).contains(http.statusCode) {
+            let decoded = try? JSONDecoder().decode(APIErrorBody.self, from: data)
+            if http.statusCode == 402 {
+                throw SafeMasterAPIError.insufficientCredits(remaining: decoded?.credits)
+            }
+            throw SafeMasterAPIError.httpError(http.statusCode, decoded?.error ?? String(data: data, encoding: .utf8))
+        }
+
+        let decoded = try JSONDecoder().decode(ImportedNoticeParseResponse.self, from: data)
+        if decoded.ok == false {
+            throw SafeMasterAPIError.serverMessage(decoded.error ?? "通知单识别失败")
+        }
+        guard let draft = decoded.draft else {
+            throw SafeMasterAPIError.decoding
+        }
+        let documentID = extraction.documentID ?? UUID()
+        if let credits = decoded.credits {
+            NotificationCenter.default.post(
+                name: .safemasterCreditsDidChange,
+                object: nil,
+                userInfo: ["credits": credits]
+            )
+        }
+        return draft.toDraft(documentID: documentID)
     }
 
     private func throwIfNeeded(data: Data, response: URLResponse) throws {

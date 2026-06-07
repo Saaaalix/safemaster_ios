@@ -8,10 +8,18 @@ const express = require("express");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const multer = require("multer");
+const mammoth = require("mammoth");
 const { buildSystemPrompt, buildUserPrompt } = require("./hazardPrompts");
+const { LawEvidenceRetriever } = require("./lawEvidenceRetriever");
+const { buildRateLimiters } = require("./rateLimiters");
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
 
 app.use(express.json({ limit: "3mb" }));
 
@@ -30,6 +38,20 @@ try {
 } catch (e) {
   console.warn("[config] 读取 config.json 失败：", e.message);
 }
+
+const lawRetriever = new LawEvidenceRetriever({
+  lawsDir: fileConfig.lawsDir || process.env.LAWS_DIR || "",
+});
+const defaultLawDomain = String(fileConfig.activeLawDomain || process.env.SAFEMASTER_ACTIVE_LAW_DOMAIN || "construction").trim();
+const trustProxyRaw = process.env.TRUST_PROXY ?? fileConfig.trustProxy;
+if (trustProxyRaw !== undefined && trustProxyRaw !== null && String(trustProxyRaw).trim() !== "") {
+  const trustProxy = ["1", "true", "yes", "on"].includes(String(trustProxyRaw).trim().toLowerCase());
+  if (trustProxy) {
+    app.set("trust proxy", 1);
+  }
+}
+
+const { authLimiter, analyzeLimiter, creditsLimiter } = buildRateLimiters(fileConfig);
 
 function getDeepseekKey() {
   const env = process.env.DEEPSEEK_API_KEY;
@@ -67,30 +89,70 @@ function loadDb() {
   }
 }
 
+function normalizeAIUnits(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(10000, Math.ceil(n));
+}
+
+function normalizePlanDays(raw, fallback = PLAN.trialDays) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(365, Math.floor(n));
+}
+
+function usageUnitsFromTokens(totalTokens) {
+  const total = Number(totalTokens);
+  if (!Number.isFinite(total) || total <= 0) return 1;
+  return normalizeAIUnits(total / PLAN.aiUnitTokens);
+}
+
+function normalizeModelUsage(raw) {
+  const promptTokens = Number(raw?.prompt_tokens ?? raw?.promptTokens ?? 0);
+  const completionTokens = Number(raw?.completion_tokens ?? raw?.completionTokens ?? 0);
+  const totalTokensRaw = Number(raw?.total_tokens ?? raw?.totalTokens ?? 0);
+  const safePrompt = Number.isFinite(promptTokens) && promptTokens > 0 ? Math.floor(promptTokens) : 0;
+  const safeCompletion = Number.isFinite(completionTokens) && completionTokens > 0 ? Math.floor(completionTokens) : 0;
+  const totalTokens = Number.isFinite(totalTokensRaw) && totalTokensRaw > 0
+    ? Math.floor(totalTokensRaw)
+    : safePrompt + safeCompletion;
+  return {
+    promptTokens: safePrompt,
+    completionTokens: safeCompletion,
+    totalTokens: Math.max(0, totalTokens),
+  };
+}
+
+function remainingAIUnits(row) {
+  const limit = Number(row?.daily_ai_unit_limit ?? row?.daily_limit ?? PLAN.dailyAIUnitLimit);
+  const used = Number(row?.daily_ai_unit_used ?? row?.daily_used ?? 0);
+  return Math.max(0, limit - used);
+}
+
 /**
- * 扣次：供 /v1/credits/consume 与 /v1/hazard/analyze 共用
+ * AI 额度扣减：保留旧的 credits 返回字段，但含义改为“剩余 AI 点数”。
  * @returns {Promise<{ok:boolean,credits?:number,statusCode?:number,errorMessage?:string}>}
  */
-async function consumeCreditsInternal(sub, amount) {
+async function consumeCreditsInternal(sub, amount, options = {}) {
   if (!sub) {
     return { ok: false, statusCode: 401, errorMessage: "需要 Bearer accessToken" };
   }
-  let amt = Number(amount);
-  if (!Number.isFinite(amt) || amt < 1) amt = 1;
-  amt = Math.min(10, Math.floor(amt));
+  const amt = normalizeAIUnits(amount);
+  const allowOverage = Boolean(options.allowOverage);
 
   if (!pool) {
-    if (!demoCreditsByToken.has(sub)) demoCreditsByToken.set(sub, 5);
+    if (!demoCreditsByToken.has(sub)) demoCreditsByToken.set(sub, PLAN.dailyAIUnitLimit);
     const cur = demoCreditsByToken.get(sub);
-    if (cur < amt) {
+    if (!allowOverage && cur < amt) {
       return { ok: false, statusCode: 402, credits: cur, errorMessage: "次数不足" };
     }
-    const next = cur - amt;
+    const next = Math.max(0, cur - amt);
     demoCreditsByToken.set(sub, next);
     return { ok: true, credits: next };
   }
 
   try {
+    await ensureUsageSchema();
     let row = await loadUserRow(sub);
     if (!row) {
       return { ok: false, statusCode: 404, credits: 0, errorMessage: "用户不存在，请先登录" };
@@ -101,39 +163,70 @@ async function consumeCreditsInternal(sub, amount) {
       return {
         ok: false,
         statusCode: 402,
-        credits: remainingDailyQuota(row),
+        credits: remainingAIUnits(row),
         errorMessage: "会员已过期或未开通，请先订阅（月费48元）",
       };
     }
-    const left = remainingDailyQuota(row);
-    if (left < amt) {
+    const left = remainingAIUnits(row);
+    if (!allowOverage && left < amt) {
       return {
         ok: false,
         statusCode: 402,
         credits: left,
-        errorMessage: "今日分析次数已用完（每日20次）",
+        errorMessage: "今日 AI 额度不足",
       };
     }
-    const [result] = await pool.execute(
-      "UPDATE users SET daily_used = daily_used + ? WHERE apple_sub = ? AND daily_used + ? <= daily_limit",
-      [amt, sub, amt]
+    await pool.execute(
+      "UPDATE users SET daily_ai_unit_used = daily_ai_unit_used + ? WHERE apple_sub = ?",
+      [amt, sub]
     );
-    if (result.affectedRows === 0) {
-      row = await loadUserRow(sub);
-      return {
-        ok: false,
-        statusCode: 402,
-        credits: remainingDailyQuota(row),
-        errorMessage: "今日分析次数已用完（每日20次）",
-      };
+    if (options.usageLog) {
+      await insertAIUsageLog({
+        appleSub: sub,
+        feature: options.usageLog.feature || "unknown",
+        model: options.usageLog.model || "",
+        usage: options.usageLog.usage,
+        unitsCharged: amt,
+      });
     }
     row = await loadUserRow(sub);
     row = await resetDailyQuotaIfNeeded(sub, row);
-    return { ok: true, credits: remainingDailyQuota(row) };
+    return { ok: true, credits: remainingAIUnits(row) };
   } catch (e) {
     console.error(e);
-    return { ok: false, statusCode: 500, errorMessage: "扣次失败：" + e.message };
+    return { ok: false, statusCode: 500, errorMessage: "扣减 AI 额度失败：" + e.message };
   }
+}
+
+async function preflightAIQuota(sub) {
+  if (!sub) {
+    return { ok: false, statusCode: 401, errorMessage: "需要 Bearer accessToken" };
+  }
+  if (!pool) {
+    if (!demoCreditsByToken.has(sub)) demoCreditsByToken.set(sub, PLAN.dailyAIUnitLimit);
+    const left = demoCreditsByToken.get(sub);
+    return left > 0
+      ? { ok: true, credits: left }
+      : { ok: false, statusCode: 402, credits: 0, errorMessage: "今日 AI 额度不足" };
+  }
+  await ensureUsageSchema();
+  let row = await loadUserRow(sub);
+  if (!row) {
+    return { ok: false, statusCode: 404, credits: 0, errorMessage: "用户不存在，请先登录" };
+  }
+  row = await resetDailyQuotaIfNeeded(sub, row);
+  if (!isPlanActive(row)) {
+    return {
+      ok: false,
+      statusCode: 402,
+      credits: remainingAIUnits(row),
+      errorMessage: "会员已过期或未开通，请先订阅（月费48元）",
+    };
+  }
+  const left = remainingAIUnits(row);
+  return left > 0
+    ? { ok: true, credits: left }
+    : { ok: false, statusCode: 402, credits: 0, errorMessage: "今日 AI 额度不足" };
 }
 
 function stripMarkdownJSONFence(s) {
@@ -162,9 +255,11 @@ function normalizeAnalysis(obj) {
       "3. 完成整改后复查并留存记录。";
   }
   const risk = pickField(obj.risk_level, obj.riskLevel) || "一般风险";
+  const replyDraft = pickField(obj.rectification_reply_draft, obj.rectificationReplyDraft);
   return {
     hazard_description: hazard,
     rectification_measures: measures,
+    rectification_reply_draft: replyDraft,
     risk_level: risk,
     accident_category_major: pickField(obj.accident_category_major, obj.accidentCategoryMajor),
     accident_category_minor: pickField(obj.accident_category_minor, obj.accidentCategoryMinor),
@@ -172,19 +267,75 @@ function normalizeAnalysis(obj) {
   };
 }
 
+function normalizeNoticeField(raw, fallbackConfidence = 0.92) {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const value = pickField(raw.value, raw.text);
+    const confidence = Number(raw.confidence);
+    return {
+      value,
+      confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : fallbackConfidence,
+      sourceSnippet: pickField(raw.source_snippet, raw.sourceSnippet) || undefined,
+      needsReview: Boolean(raw.needs_review ?? raw.needsReview ?? !value),
+    };
+  }
+  const value = raw == null ? "" : String(raw).trim();
+  return {
+    value,
+    confidence: value ? fallbackConfidence : 0,
+    sourceSnippet: undefined,
+    needsReview: !value,
+  };
+}
+
+function normalizeNoticeDraft(obj) {
+  const typeRaw = pickField(obj.document_type, obj.documentType).toLowerCase();
+  const documentType = ["hazardNotice", "rectificationReply", "inspectionRecord", "meetingMinutes", "unknown"]
+    .includes(typeRaw)
+    ? typeRaw
+    : (typeRaw.includes("reply") || typeRaw.includes("回复") ? "rectificationReply" : "hazardNotice");
+  const hazardsRaw = Array.isArray(obj.hazards) ? obj.hazards : [];
+  const hazards = hazardsRaw.map((h) => ({
+    location: normalizeNoticeField(h?.location, 0.9),
+    description: normalizeNoticeField(h?.description ?? h?.hazard_description ?? h?.hazardDescription, 0.9),
+    requirement: normalizeNoticeField(h?.requirement ?? h?.rectification_requirement ?? h?.rectificationRequirement, 0.9),
+    dueDate: normalizeNoticeField(h?.due_date ?? h?.dueDate, 0.88),
+    responsibleParty: normalizeNoticeField(h?.responsible_party ?? h?.responsibleParty, 0.88),
+  })).filter((h) => h.description.value || h.requirement.value || h.location.value);
+
+  const confidence = Number(obj.confidence);
+  return {
+    documentType,
+    projectName: normalizeNoticeField(obj.project_name ?? obj.projectName, 0.9),
+    issuer: normalizeNoticeField(obj.issuer, 0.92),
+    inspectedUnit: normalizeNoticeField(obj.inspected_unit ?? obj.inspectedUnit, 0.92),
+    noticeNo: normalizeNoticeField(obj.notice_no ?? obj.noticeNo, 0.92),
+    noticeDate: normalizeNoticeField(obj.notice_date ?? obj.noticeDate, 0.92),
+    rectificationDeadline: normalizeNoticeField(obj.rectification_deadline ?? obj.rectificationDeadline, 0.9),
+    hazards,
+    legalBasis: normalizeNoticeField(obj.legal_basis ?? obj.legalBasis, 0.88),
+    summary: pickField(obj.summary, obj.document_summary ?? obj.documentSummary),
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0.9,
+    warnings: Array.isArray(obj.warnings) ? obj.warnings.map((x) => String(x)).filter(Boolean).slice(0, 12) : [],
+  };
+}
+
 const MAX_ANALYZE = {
   location: 500,
   supplementary: 4000,
   vision: 12000,
-  playbook: 20000,
-  law: 25000,
 };
 
 const PLAN = {
   monthlyPriceCNY: Number(fileConfig.planMonthlyPriceCNY) > 0 ? Number(fileConfig.planMonthlyPriceCNY) : 48,
   dailyLimit: Number(fileConfig.planDailyLimit) > 0 ? Number(fileConfig.planDailyLimit) : 20,
+  dailyAIUnitLimit: Number(fileConfig.planDailyAIUnitLimit) > 0
+    ? Number(fileConfig.planDailyAIUnitLimit)
+    : 200,
+  aiUnitTokens: Number(fileConfig.aiUnitTokens) > 0 ? Number(fileConfig.aiUnitTokens) : 1000,
   trialDays: 30,
 };
+
+let usageSchemaPromise = null;
 
 function isMockRenewEnabled() {
   const raw = process.env.ALLOW_MOCK_RENEW ?? fileConfig.allowMockRenew;
@@ -214,14 +365,13 @@ function isPlanActive(row) {
 }
 
 function remainingDailyQuota(row) {
-  const limit = Number(row?.daily_limit ?? PLAN.dailyLimit);
-  const used = Number(row?.daily_used ?? 0);
-  return Math.max(0, limit - used);
+  return remainingAIUnits(row);
 }
 
 async function loadUserRow(sub) {
+  await ensureUsageSchema();
   const [rows] = await pool.execute(
-    "SELECT apple_sub, credits, plan_status, plan_expires_at, daily_limit, daily_used, daily_quota_date, report_unlimited FROM users WHERE apple_sub = ? LIMIT 1",
+    "SELECT apple_sub, credits, plan_status, plan_expires_at, daily_limit, daily_used, daily_ai_unit_limit, daily_ai_unit_used, daily_quota_date, report_unlimited FROM users WHERE apple_sub = ? LIMIT 1",
     [sub]
   );
   return rows[0] || null;
@@ -233,10 +383,11 @@ async function resetDailyQuotaIfNeeded(sub, row) {
     return row;
   }
   await pool.execute(
-    "UPDATE users SET daily_used = 0, daily_quota_date = ? WHERE apple_sub = ?",
+    "UPDATE users SET daily_used = 0, daily_ai_unit_used = 0, daily_quota_date = ? WHERE apple_sub = ?",
     [today, sub]
   );
   row.daily_used = 0;
+  row.daily_ai_unit_used = 0;
   row.daily_quota_date = today;
   return row;
 }
@@ -248,8 +399,8 @@ function buildSubscriptionPayload(row) {
     expiresAt: row.plan_expires_at
       ? new Date(row.plan_expires_at).toISOString()
       : null,
-    dailyLimit: Number(row.daily_limit ?? PLAN.dailyLimit),
-    dailyUsed: Number(row.daily_used ?? 0),
+    dailyLimit: Number(row.daily_ai_unit_limit ?? PLAN.dailyAIUnitLimit),
+    dailyUsed: Number(row.daily_ai_unit_used ?? 0),
     dailyRemaining: remainingDailyQuota(row),
     dailyQuotaDate: row.daily_quota_date || "",
     reportUnlimited: Boolean(row.report_unlimited),
@@ -261,6 +412,20 @@ function clampStr(s, max) {
   const t = typeof s === "string" ? s : "";
   if (t.length <= max) return t;
   return t.slice(0, max) + "\n…（已截断）";
+}
+
+function decodeTextBuffer(buf) {
+  if (!buf || !buf.length) return "";
+  const candidates = ["utf8", "utf16le", "latin1"];
+  for (const enc of candidates) {
+    const s = Buffer.from(buf).toString(enc).trim();
+    if (s) return s;
+  }
+  return "";
+}
+
+function extOf(name = "") {
+  return path.extname(String(name).toLowerCase()).replace(".", "");
 }
 
 function appleSubFromToken(identityToken) {
@@ -286,6 +451,74 @@ function decodeJWTPayloadWithoutVerify(jwt) {
   const parts = String(jwt || "").split(".");
   if (parts.length < 2) return null;
   return decodeBase64UrlJSON(parts[1]);
+}
+
+async function tableHasColumn(tableName, columnName) {
+  if (!/^[A-Za-z0-9_]+$/.test(tableName) || !/^[A-Za-z0-9_]+$/.test(columnName)) {
+    throw new Error("非法数据表或字段名");
+  }
+  const [rows] = await pool.execute(
+    "SHOW COLUMNS FROM `" + tableName + "` LIKE '" + columnName + "'"
+  );
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+async function ensureUsageSchema() {
+  if (!pool) return;
+  if (!usageSchemaPromise) {
+    usageSchemaPromise = (async () => {
+      if (!(await tableHasColumn("users", "daily_ai_unit_limit"))) {
+        await pool.execute(
+          "ALTER TABLE users ADD COLUMN daily_ai_unit_limit INT NOT NULL DEFAULT " +
+            Number(PLAN.dailyAIUnitLimit) +
+            " COMMENT '每日 AI 点数额度'"
+        );
+      }
+      if (!(await tableHasColumn("users", "daily_ai_unit_used"))) {
+        await pool.execute(
+          "ALTER TABLE users ADD COLUMN daily_ai_unit_used INT NOT NULL DEFAULT 0 COMMENT '当日已用 AI 点数'"
+        );
+      }
+      await pool.execute(
+        "UPDATE users SET daily_ai_unit_limit = ? WHERE daily_ai_unit_limit IS NULL OR daily_ai_unit_limit <= 0",
+        [PLAN.dailyAIUnitLimit]
+      );
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS ai_usage_logs (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          apple_sub VARCHAR(64) NOT NULL,
+          feature VARCHAR(64) NOT NULL DEFAULT '',
+          model VARCHAR(64) NOT NULL DEFAULT '',
+          prompt_tokens INT NOT NULL DEFAULT 0,
+          completion_tokens INT NOT NULL DEFAULT 0,
+          total_tokens INT NOT NULL DEFAULT 0,
+          units_charged INT NOT NULL DEFAULT 0,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_ai_usage_apple_sub_created (apple_sub, created_at),
+          KEY idx_ai_usage_feature_created (feature, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+    })();
+  }
+  return usageSchemaPromise;
+}
+
+async function insertAIUsageLog({ appleSub, feature, model, usage, unitsCharged }) {
+  if (!pool) return;
+  const normalized = normalizeModelUsage(usage);
+  await pool.execute(
+    "INSERT INTO ai_usage_logs (apple_sub, feature, model, prompt_tokens, completion_tokens, total_tokens, units_charged) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [
+      appleSub,
+      String(feature || "").slice(0, 64),
+      String(model || "").slice(0, 64),
+      normalized.promptTokens,
+      normalized.completionTokens,
+      normalized.totalTokens,
+      normalizeAIUnits(unitsCharged),
+    ]
+  );
 }
 
 async function ensureIapTransactionsTable() {
@@ -342,8 +575,8 @@ app.get("/v1/me", async (req, res) => {
           active: true,
           status: "demo",
           expiresAt: null,
-          dailyLimit: PLAN.dailyLimit,
-          dailyUsed: PLAN.dailyLimit - left,
+          dailyLimit: PLAN.dailyAIUnitLimit,
+          dailyUsed: PLAN.dailyAIUnitLimit - left,
           dailyRemaining: left,
           dailyQuotaDate: cnDateKey(),
           reportUnlimited: true,
@@ -355,14 +588,14 @@ app.get("/v1/me", async (req, res) => {
     }
     return res.json({
       ok: true,
-      credits: PLAN.dailyLimit,
+      credits: PLAN.dailyAIUnitLimit,
       subscription: {
         active: true,
         status: "demo",
         expiresAt: null,
-        dailyLimit: PLAN.dailyLimit,
+        dailyLimit: PLAN.dailyAIUnitLimit,
         dailyUsed: 0,
-        dailyRemaining: PLAN.dailyLimit,
+        dailyRemaining: PLAN.dailyAIUnitLimit,
         dailyQuotaDate: cnDateKey(),
         reportUnlimited: true,
         monthlyPriceCNY: PLAN.monthlyPriceCNY,
@@ -398,7 +631,25 @@ app.get("/v1/me", async (req, res) => {
   }
 });
 
-app.post("/v1/auth/apple", async (req, res) => {
+/**
+ * GET /v1/laws/status
+ * 用于确认服务端法规库加载状态与实际目录（便于运维热更新核对）。
+ */
+app.get("/v1/laws/status", (req, res) => {
+  try {
+    const status = lawRetriever.getStatus();
+    return res.json({
+      ok: true,
+      status,
+      activeLawDomain: defaultLawDomain || "construction",
+      note: "法规库由服务端本地文件提供。更新 lawsDir 下文件后，接口将按文件修改时间自动重载。",
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: "读取法规库状态失败：" + e.message });
+  }
+});
+
+app.post("/v1/auth/apple", authLimiter, async (req, res) => {
   const token = req.body?.identityToken;
   if (!token || typeof token !== "string") {
     return res.status(400).json({
@@ -410,18 +661,18 @@ app.post("/v1/auth/apple", async (req, res) => {
   const sub = appleSubFromToken(token);
 
   if (!pool) {
-    demoCreditsByToken.set(sub, PLAN.dailyLimit);
+    demoCreditsByToken.set(sub, PLAN.dailyAIUnitLimit);
     return res.json({
       ok: true,
       accessToken: sub,
-      credits: PLAN.dailyLimit,
+      credits: PLAN.dailyAIUnitLimit,
       subscription: {
         active: true,
         status: "demo",
         expiresAt: null,
-        dailyLimit: PLAN.dailyLimit,
+        dailyLimit: PLAN.dailyAIUnitLimit,
         dailyUsed: 0,
-        dailyRemaining: PLAN.dailyLimit,
+        dailyRemaining: PLAN.dailyAIUnitLimit,
         dailyQuotaDate: cnDateKey(),
         reportUnlimited: true,
         monthlyPriceCNY: PLAN.monthlyPriceCNY,
@@ -432,15 +683,17 @@ app.post("/v1/auth/apple", async (req, res) => {
   }
 
   try {
+    await ensureUsageSchema();
+    const trialDays = normalizePlanDays(PLAN.trialDays);
     await pool.execute(
-      "INSERT INTO users (apple_sub, credits, plan_status, plan_expires_at, daily_limit, daily_used, daily_quota_date, report_unlimited) VALUES (?, ?, 'active', DATE_ADD(NOW(), INTERVAL ? DAY), ?, 0, ?, 1) ON DUPLICATE KEY UPDATE apple_sub = apple_sub",
-      [sub, PLAN.dailyLimit, PLAN.trialDays, PLAN.dailyLimit, cnDateKey()]
+      "INSERT INTO users (apple_sub, credits, plan_status, plan_expires_at, daily_limit, daily_used, daily_ai_unit_limit, daily_ai_unit_used, daily_quota_date, report_unlimited) VALUES (?, ?, 'active', DATE_ADD(NOW(), INTERVAL " + trialDays + " DAY), ?, 0, ?, 0, ?, 1) ON DUPLICATE KEY UPDATE apple_sub = apple_sub",
+      [sub, PLAN.dailyAIUnitLimit, PLAN.dailyLimit, PLAN.dailyAIUnitLimit, cnDateKey()]
     );
     let row = await loadUserRow(sub);
     if (row && !row.plan_expires_at) {
       await pool.execute(
-        "UPDATE users SET plan_status = 'active', plan_expires_at = DATE_ADD(NOW(), INTERVAL ? DAY), daily_limit = ?, daily_used = 0, daily_quota_date = ? WHERE apple_sub = ?",
-        [PLAN.trialDays, PLAN.dailyLimit, cnDateKey(), sub]
+        "UPDATE users SET plan_status = 'active', plan_expires_at = DATE_ADD(NOW(), INTERVAL " + trialDays + " DAY), daily_limit = ?, daily_used = 0, daily_ai_unit_limit = ?, daily_ai_unit_used = 0, daily_quota_date = ? WHERE apple_sub = ?",
+        [PLAN.dailyLimit, PLAN.dailyAIUnitLimit, cnDateKey(), sub]
       );
       row = await loadUserRow(sub);
     }
@@ -452,7 +705,7 @@ app.post("/v1/auth/apple", async (req, res) => {
       accessToken: sub,
       credits,
       subscription,
-      note: "已写入数据库（首次登录赠送30天会员，每日20次）",
+      note: "已写入数据库（首次登录赠送30天会员，按每日 AI 点数额度计费）",
       version: "0.6",
     });
   } catch (e) {
@@ -466,7 +719,7 @@ app.post("/v1/auth/apple", async (req, res) => {
  * Header: Authorization: Bearer <accessToken>
  * Body: { "amount": 1 } 可选，默认 1，上限 10
  */
-app.post("/v1/credits/consume", async (req, res) => {
+app.post("/v1/credits/consume", creditsLimiter, async (req, res) => {
   const sub = bearerToken(req);
   let amount = Number(req.body?.amount);
   if (!Number.isFinite(amount) || amount < 1) amount = 1;
@@ -504,17 +757,17 @@ app.post("/v1/subscription/mock/renew", async (req, res) => {
     return res.status(401).json({ ok: false, error: "需要 Bearer accessToken" });
   }
   if (!pool) {
-    demoCreditsByToken.set(sub, PLAN.dailyLimit);
+    demoCreditsByToken.set(sub, PLAN.dailyAIUnitLimit);
     return res.json({
       ok: true,
-      credits: PLAN.dailyLimit,
+      credits: PLAN.dailyAIUnitLimit,
       subscription: {
         active: true,
         status: "demo",
         expiresAt: null,
-        dailyLimit: PLAN.dailyLimit,
+        dailyLimit: PLAN.dailyAIUnitLimit,
         dailyUsed: 0,
-        dailyRemaining: PLAN.dailyLimit,
+        dailyRemaining: PLAN.dailyAIUnitLimit,
         dailyQuotaDate: cnDateKey(),
         reportUnlimited: true,
         monthlyPriceCNY: PLAN.monthlyPriceCNY,
@@ -524,11 +777,11 @@ app.post("/v1/subscription/mock/renew", async (req, res) => {
   }
   let days = Number(req.body?.days);
   if (!Number.isFinite(days) || days < 1) days = 30;
-  days = Math.min(365, Math.floor(days));
+  days = normalizePlanDays(days, 30);
   try {
     const [result] = await pool.execute(
-      "UPDATE users SET plan_status = 'active', plan_expires_at = DATE_ADD(GREATEST(COALESCE(plan_expires_at, NOW()), NOW()), INTERVAL ? DAY), daily_limit = ?, daily_used = 0, daily_quota_date = ?, report_unlimited = 1 WHERE apple_sub = ?",
-      [days, PLAN.dailyLimit, cnDateKey(), sub]
+      "UPDATE users SET plan_status = 'active', plan_expires_at = DATE_ADD(GREATEST(COALESCE(plan_expires_at, NOW()), NOW()), INTERVAL " + days + " DAY), daily_limit = ?, daily_used = 0, daily_ai_unit_limit = ?, daily_ai_unit_used = 0, daily_quota_date = ?, report_unlimited = 1 WHERE apple_sub = ?",
+      [PLAN.dailyLimit, PLAN.dailyAIUnitLimit, cnDateKey(), sub]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ ok: false, error: "用户不存在，请先登录" });
@@ -638,8 +891,8 @@ app.post("/v1/subscription/apple/verify", async (req, res) => {
     }
 
     const [result] = await pool.execute(
-      "UPDATE users SET plan_status = 'active', plan_expires_at = GREATEST(COALESCE(plan_expires_at, '1970-01-01 00:00:00'), ?), daily_limit = ?, report_unlimited = 1 WHERE apple_sub = ?",
-      [expiresAtSql, PLAN.dailyLimit, sub]
+      "UPDATE users SET plan_status = 'active', plan_expires_at = GREATEST(COALESCE(plan_expires_at, '1970-01-01 00:00:00'), ?), daily_limit = ?, daily_ai_unit_limit = ?, report_unlimited = 1 WHERE apple_sub = ?",
+      [expiresAtSql, PLAN.dailyLimit, PLAN.dailyAIUnitLimit, sub]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ ok: false, error: "用户不存在，请先登录" });
@@ -662,10 +915,11 @@ app.post("/v1/subscription/apple/verify", async (req, res) => {
 
 /**
  * POST /v1/hazard/analyze
- * Bearer accessToken；本接口内先扣 1 次再代调 DeepSeek（密钥仅在服务器）。
- * Body: { hasPhoto, location, supplementaryText, visionBlock, playbookBlock, lawEvidenceBlock }
+ * Bearer accessToken；服务端代调 DeepSeek，成功后按模型 usage 折算 AI 点数。
+ * Body: { hasPhoto, location, supplementaryText, visionBlock, industryDomain? }
+ * 说明：法规检索全部在服务端完成，App 不再上传本地法规块。
  */
-app.post("/v1/hazard/analyze", async (req, res) => {
+app.post("/v1/hazard/analyze", analyzeLimiter, async (req, res) => {
   const sub = bearerToken(req);
   if (!sub) {
     return res.status(401).json({ ok: false, error: "需要 Bearer accessToken" });
@@ -680,26 +934,46 @@ app.post("/v1/hazard/analyze", async (req, res) => {
     });
   }
 
-  const con = await consumeCreditsInternal(sub, 1);
-  if (!con.ok) {
-    return res.status(con.statusCode).json({
+  const quota = await preflightAIQuota(sub);
+  if (!quota.ok) {
+    return res.status(quota.statusCode).json({
       ok: false,
-      error: con.errorMessage,
-      credits: con.credits,
+      error: quota.errorMessage,
+      credits: quota.credits,
     });
   }
-  const creditsAfter = con.credits;
+  let creditsAfter = quota.credits;
 
   const hasPhoto = Boolean(req.body?.hasPhoto);
   const visionBlock = clampStr(req.body?.visionBlock ?? "", MAX_ANALYZE.vision);
-  const playbookBlock = clampStr(req.body?.playbookBlock ?? "", MAX_ANALYZE.playbook);
-  const lawEvidenceBlock = clampStr(req.body?.lawEvidenceBlock ?? "", MAX_ANALYZE.law);
   const locationRaw = clampStr(req.body?.location ?? "", MAX_ANALYZE.location);
   const supplementaryRaw = clampStr(req.body?.supplementaryText ?? "", MAX_ANALYZE.supplementary);
 
   const place = locationRaw.trim() || "未填写";
   const text = supplementaryRaw.trim();
   const userExtra = text ? text : "（用户未填写补充文字）";
+  const retrievalQuery = `${place}\n${userExtra}\n${visionBlock}`;
+  const industryDomain = String(req.body?.industryDomain || defaultLawDomain || "construction").trim();
+
+  let playbookBlock = "";
+  let lawEvidenceBlock = "";
+  try {
+    const evidence = lawRetriever.retrieveBlocks({
+      query: retrievalQuery,
+      userEmphasis: text,
+      playbookTopK: 8,
+      basisTopK: 6,
+      domain: industryDomain,
+    });
+    playbookBlock = evidence.playbookBlock;
+    lawEvidenceBlock = evidence.basisBlock;
+  } catch (e) {
+      return res.status(503).json({
+        ok: false,
+        error: "服务端法规库不可用：" + e.message,
+      credits: creditsAfter,
+    });
+  }
 
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(
@@ -777,10 +1051,29 @@ app.post("/v1/hazard/analyze", async (req, res) => {
     }
 
     const analysis = normalizeAnalysis(obj);
+    const usage = normalizeModelUsage(dj.usage);
+    const unitsCharged = usageUnitsFromTokens(usage.totalTokens);
+    const charged = await consumeCreditsInternal(sub, unitsCharged, {
+      allowOverage: true,
+      usageLog: {
+        feature: "hazard_analyze",
+        model: "deepseek-chat",
+        usage,
+      },
+    });
+    if (charged.ok) {
+      creditsAfter = charged.credits;
+    }
     return res.json({
       ok: true,
       credits: creditsAfter,
-      version: pool ? "0.5" : "0.5-demo",
+      usage: {
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        unitsCharged,
+      },
+      version: pool ? "0.7" : "0.7-demo",
       analysis,
     });
   } catch (e) {
@@ -796,17 +1089,306 @@ app.post("/v1/hazard/analyze", async (req, res) => {
   }
 });
 
+/**
+ * POST /v1/import/extract-text
+ * Bearer accessToken；上传文件后服务端提取文本（docx/doc/txt/rtf）。
+ * multipart/form-data:
+ * - file: 二进制文件
+ * - cleanWithAI: "1" | "true"（可选，默认开启）
+ */
+app.post("/v1/import/extract-text", analyzeLimiter, upload.single("file"), async (req, res) => {
+  const sub = bearerToken(req);
+  if (!sub) {
+    return res.status(401).json({ ok: false, error: "需要 Bearer accessToken" });
+  }
+  const file = req.file;
+  if (!file || !file.buffer || !file.originalname) {
+    return res.status(400).json({ ok: false, error: "缺少上传文件（字段名 file）" });
+  }
+  const ext = extOf(file.originalname);
+  let extracted = "";
+  try {
+    if (ext === "docx") {
+      const result = await mammoth.extractRawText({ buffer: file.buffer });
+      extracted = String(result.value || "").trim();
+    } else if (ext === "doc" || ext === "rtf" || ext === "txt") {
+      extracted = decodeTextBuffer(file.buffer);
+    } else {
+      return res.status(415).json({
+        ok: false,
+        error: "当前仅支持 doc/docx/rtf/txt 云端提取",
+      });
+    }
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: "文档解析失败：" + e.message });
+  }
+
+  if (!extracted) {
+    return res.status(422).json({ ok: false, error: "未能提取到可读文本" });
+  }
+
+  const cleanWithAI = ["1", "true", "yes", "on"].includes(
+    String(req.body?.cleanWithAI ?? "1").trim().toLowerCase()
+  );
+  if (!cleanWithAI) {
+    return res.json({ ok: true, text: extracted, source: "parser" });
+  }
+
+  const apiKey = getDeepseekKey();
+  if (!apiKey) {
+    return res.json({
+      ok: true,
+      text: extracted,
+      source: "parser",
+      note: "服务器未配置 DeepSeek，已返回解析原文",
+    });
+  }
+  const quota = await preflightAIQuota(sub);
+  if (!quota.ok) {
+    return res.json({
+      ok: true,
+      text: extracted,
+      source: "parser",
+      note: "AI 额度不足，已返回解析原文",
+      credits: quota.credits,
+    });
+  }
+  let creditsAfter = quota.credits;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000);
+  try {
+    const prompt = [
+      "你是文档文本清洗助手。",
+      "请在不改动原意的前提下，修复明显乱码、去掉无意义符号，尽量保留原文结构。",
+      "若内容本来正常，请原样返回。",
+      "",
+      "【文档原文开始】",
+      extracted.slice(0, 120000),
+      "【文档原文结束】",
+    ].join("\n");
+
+    const dr = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: "你只输出清洗后的正文文本，不要解释。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.1,
+      }),
+      signal: controller.signal,
+    });
+    const raw = await dr.text();
+    if (!dr.ok) {
+      return res.json({ ok: true, text: extracted, source: "parser", note: "AI清洗失败，已回退原文" });
+    }
+    const parsed = JSON.parse(raw);
+    const content = String(parsed?.choices?.[0]?.message?.content || "").trim();
+    if (!content) {
+      return res.json({ ok: true, text: extracted, source: "parser", note: "AI无输出，已回退原文" });
+    }
+    const usage = normalizeModelUsage(parsed.usage);
+    const unitsCharged = usageUnitsFromTokens(usage.totalTokens);
+    const charged = await consumeCreditsInternal(sub, unitsCharged, {
+      allowOverage: true,
+      usageLog: {
+        feature: "import_extract_text_clean",
+        model: "deepseek-chat",
+        usage,
+      },
+    });
+    if (charged.ok) {
+      creditsAfter = charged.credits;
+    }
+    return res.json({
+      ok: true,
+      text: content,
+      source: "ai",
+      credits: creditsAfter,
+      usage: {
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        unitsCharged,
+      },
+    });
+  } catch (e) {
+    return res.json({ ok: true, text: extracted, source: "parser", note: "AI异常，已回退原文" });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+/**
+ * POST /v1/import/parse-notice
+ * Bearer accessToken；把已提取正文结构化为通知单草稿字段，按模型 usage 折算 AI 点数。
+ * Body: { text, fileName? }
+ */
+app.post("/v1/import/parse-notice", analyzeLimiter, async (req, res) => {
+  const sub = bearerToken(req);
+  if (!sub) {
+    return res.status(401).json({ ok: false, error: "需要 Bearer accessToken" });
+  }
+
+  const apiKey = getDeepseekKey();
+  if (!apiKey) {
+    return res.status(503).json({
+      ok: false,
+      error: "服务器未配置 DeepSeek：请在环境变量 DEEPSEEK_API_KEY 或 config.json 的 deepseekApiKey 中填写密钥",
+    });
+  }
+
+  const quota = await preflightAIQuota(sub);
+  if (!quota.ok) {
+    return res.status(quota.statusCode).json({
+      ok: false,
+      error: quota.errorMessage,
+      credits: quota.credits,
+    });
+  }
+  let creditsAfter = quota.credits;
+
+  const fileName = clampStr(req.body?.fileName ?? "", 300).trim();
+  const text = clampStr(req.body?.text ?? "", 60000).trim();
+  if (!text) {
+    return res.status(400).json({ ok: false, error: "缺少可识别正文 text" });
+  }
+
+  const systemPrompt = [
+    "你是施工安全资料员助手，负责从安全隐患整改通知单、检查通知、整改回复或排查报告中抽取结构化字段。",
+    "只输出 JSON，不要解释，不要 Markdown。",
+    "不要编造原文没有的信息；不确定就留空并在 warnings 说明。",
+    "日期统一输出 yyyy-MM-dd；通知编号保留原文格式。",
+  ].join("\n");
+  const userPrompt = [
+    "请从下面文档中提取字段，输出 JSON：",
+    "{",
+    '  "documentType": "hazardNotice|rectificationReply|inspectionRecord|meetingMinutes|unknown",',
+    '  "projectName": "项目/工程名称",',
+    '  "issuer": "发文单位/检查单位/下发单位",',
+    '  "inspectedUnit": "被检查单位/受检单位/施工单位/项目部",',
+    '  "noticeNo": "通知编号/文号/编号",',
+    '  "noticeDate": "通知日期/检查日期/来文日期，yyyy-MM-dd",',
+    '  "rectificationDeadline": "整改期限，yyyy-MM-dd；没有则空",',
+    '  "legalBasis": "法律法规或标准依据；没有则空",',
+    '  "summary": "一句话摘要",',
+    '  "confidence": 0.0,',
+    '  "warnings": ["需要人工核对的点"],',
+    '  "hazards": [',
+    '    { "location": "部位/地点", "description": "存在问题", "requirement": "整改要求", "dueDate": "yyyy-MM-dd", "responsibleParty": "责任单位/责任人" }',
+    "  ]",
+    "}",
+    "",
+    fileName ? `文件名：${fileName}` : "",
+    "【文档正文开始】",
+    text,
+    "【文档正文结束】",
+  ].filter(Boolean).join("\n");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 120000);
+  try {
+    const dr = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+      }),
+      signal: controller.signal,
+    });
+
+    const rawText = await dr.text();
+    if (!dr.ok) {
+      console.error("[import.parse-notice] HTTP", dr.status, rawText.slice(0, 600));
+      return res.status(502).json({
+        ok: false,
+        error: "模型服务错误（HTTP " + dr.status + "）",
+        credits: creditsAfter,
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (e) {
+      return res.status(502).json({ ok: false, error: "模型响应不是 JSON", credits: creditsAfter });
+    }
+    const content = String(parsed?.choices?.[0]?.message?.content || "").trim();
+    if (!content) {
+      return res.status(502).json({ ok: false, error: "模型未返回内容", credits: creditsAfter });
+    }
+    let obj;
+    try {
+      obj = JSON.parse(stripMarkdownJSONFence(content));
+    } catch (e) {
+      console.error("[import.parse-notice] 内容 JSON 解析失败", e.message, content.slice(0, 400));
+      return res.status(502).json({ ok: false, error: "模型返回不是有效 JSON", credits: creditsAfter });
+    }
+
+    const usage = normalizeModelUsage(parsed.usage);
+    const unitsCharged = usageUnitsFromTokens(usage.totalTokens);
+    const charged = await consumeCreditsInternal(sub, unitsCharged, {
+      allowOverage: true,
+      usageLog: {
+        feature: "import_parse_notice",
+        model: "deepseek-chat",
+        usage,
+      },
+    });
+    if (charged.ok) {
+      creditsAfter = charged.credits;
+    }
+    return res.json({
+      ok: true,
+      credits: creditsAfter,
+      usage: {
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        unitsCharged,
+      },
+      draft: normalizeNoticeDraft(obj),
+    });
+  } catch (e) {
+    const msg = e.name === "AbortError" ? "模型请求超时" : e.message;
+    console.error("[v1/import/parse-notice]", e);
+    return res.status(502).json({
+      ok: false,
+      error: "通知单识别失败：" + msg,
+      credits: creditsAfter,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
 app.get("/", (req, res) => {
   res.type("html").send(
     `<h1>SafeMaster 服务端</h1>
     <p>模式：<b>${dbMode}</b></p>
     <ul>
       <li><a href="/health">GET /health</a></li>
-      <li>GET /v1/me（Bearer；返回会员状态与每日剩余次数）</li>
+      <li>GET /v1/me（Bearer；返回会员状态与每日剩余 AI 点数）</li>
       <li>POST /v1/auth/apple</li>
-      <li>POST /v1/credits/consume（Bearer，开发接口：扣分析次数）</li>
+      <li>POST /v1/credits/consume（Bearer，开发接口：扣 AI 点数）</li>
       <li>POST /v1/subscription/mock/renew（Bearer，开发联调用：续期与重置配额）</li>
-      <li>POST /v1/hazard/analyze（Bearer，扣 1 次 + 服务端代调 DeepSeek）</li>
+      <li>GET /v1/laws/status（法规库状态与目录）</li>
+      <li>POST /v1/hazard/analyze（Bearer，服务端代调 DeepSeek，按 usage 折算 AI 点数）</li>
     </ul>`
   );
 });

@@ -15,6 +15,8 @@ struct ReportTemplateEditorView: View {
     @State private var templateDescription = ""
     @State private var pdfShareItem: PDFShareItem?
     @State private var exportErrorMessage: String?
+    @State private var validationSheet: ReportValidationSheetState?
+    @State private var exportConfirmation: ReportExportConfirmation?
     @State private var templateStatusMessage: String?
     @State private var didLoadInitialTemplate = false
 
@@ -54,12 +56,33 @@ struct ReportTemplateEditorView: View {
         .inlineNavigationTitleMode()
         .onAppear(perform: loadInitialTemplate)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("检查报告") {
+                    checkReport()
+                }
+
                 Button("分享 PDF") {
-                    sharePDF()
+                    requestPDFShare()
                 }
                 .disabled(enabledModules.isEmpty)
             }
+        }
+        .alert(exportConfirmation?.title ?? "", isPresented: Binding(
+            get: { exportConfirmation != nil },
+            set: { if !$0 { exportConfirmation = nil } }
+        )) {
+            Button("返回修改", role: .cancel) {
+                if let issues = exportConfirmation?.issues {
+                    validationSheet = ReportValidationSheetState(issues: issues)
+                }
+                exportConfirmation = nil
+            }
+            Button("仍然导出") {
+                exportConfirmation = nil
+                sharePDF()
+            }
+        } message: {
+            Text(exportConfirmation?.message ?? "")
         }
         .alert("PDF 生成失败", isPresented: Binding(
             get: { exportErrorMessage != nil },
@@ -70,6 +93,9 @@ struct ReportTemplateEditorView: View {
             Text(exportErrorMessage ?? "")
         }
 #if os(iOS)
+        .sheet(item: $validationSheet) { state in
+            ReportValidationResultView(issues: state.issues)
+        }
         .sheet(item: $pdfShareItem) { item in
             ActivityShareView(items: [item.url])
         }
@@ -415,6 +441,27 @@ struct ReportTemplateEditorView: View {
         return name
     }
 
+    private func validateCurrentReport() -> [ReportTemplateValidationIssue] {
+        ReportTemplateValidator.validate(
+            template: template,
+            previewData: previewData,
+            editableFields: editableFields
+        )
+    }
+
+    private func checkReport() {
+        validationSheet = ReportValidationSheetState(issues: validateCurrentReport())
+    }
+
+    private func requestPDFShare() {
+        let issues = validateCurrentReport()
+        guard !issues.isEmpty else {
+            sharePDF()
+            return
+        }
+        exportConfirmation = ReportExportConfirmation(issues: issues)
+    }
+
     private func sharePDF() {
         do {
             let url = try ReportTemplatePDFExporter.buildTemporaryFileURL(
@@ -432,6 +479,123 @@ struct ReportTemplateEditorView: View {
 private struct PDFShareItem: Identifiable {
     let id = UUID()
     let url: URL
+}
+
+private struct ReportValidationSheetState: Identifiable {
+    let id = UUID()
+    var issues: [ReportTemplateValidationIssue]
+}
+
+private struct ReportExportConfirmation: Identifiable {
+    let id = UUID()
+    var issues: [ReportTemplateValidationIssue]
+
+    var hasErrors: Bool {
+        issues.contains { $0.severity == .error }
+    }
+
+    var title: String {
+        hasErrors ? "报告存在关键缺失项" : "报告存在建议补充项"
+    }
+
+    var message: String {
+        if hasErrors {
+            return "报告存在关键缺失项，建议补充后再导出。你也可以选择仍然导出。"
+        }
+        return "报告存在建议补充项，是否继续导出？"
+    }
+}
+
+private struct ReportValidationResultView: View {
+    @Environment(\.dismiss) private var dismiss
+    let issues: [ReportTemplateValidationIssue]
+
+    private var errorIssues: [ReportTemplateValidationIssue] {
+        issues.filter { $0.severity == .error }
+    }
+
+    private var warningIssues: [ReportTemplateValidationIssue] {
+        issues.filter { $0.severity == .warning }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if issues.isEmpty {
+                        ContentUnavailableView(
+                            "报告检查通过",
+                            systemImage: "checkmark.seal",
+                            description: Text("报告检查通过，可以导出。")
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 240)
+                    } else {
+                        validationGroup(
+                            title: ReportTemplateValidationSeverity.error.title,
+                            issues: errorIssues,
+                            tint: .red,
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        validationGroup(
+                            title: ReportTemplateValidationSeverity.warning.title,
+                            issues: warningIssues,
+                            tint: .orange,
+                            systemImage: "info.circle.fill"
+                        )
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("报告检查结果")
+            .inlineNavigationTitleMode()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func validationGroup(
+        title: String,
+        issues: [ReportTemplateValidationIssue],
+        tint: Color,
+        systemImage: String
+    ) -> some View {
+        if !issues.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(title, systemImage: systemImage)
+                    .font(.headline)
+                    .foregroundStyle(tint)
+
+                ForEach(issues) { issue in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Text(issue.moduleTitle)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 8)
+                            Text(issue.severity.title)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(tint)
+                        }
+                        Text(issue.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(issue.message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(12)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+            }
+        }
+    }
 }
 
 #Preview {

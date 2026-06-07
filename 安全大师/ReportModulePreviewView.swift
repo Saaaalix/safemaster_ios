@@ -27,14 +27,14 @@ struct ReportModulePreviewView: View {
     private var content: some View {
         switch module.type {
         case .basicInfo:
-            VStack(alignment: .leading, spacing: 6) {
-                previewRow("报告标题", editableFields.displayValue(\.reportTitle))
-                previewRow("项目名称", editableFields.displayValue(\.projectName))
-                previewRow("检查单位", editableFields.displayValue(\.inspectionUnit))
-                previewRow("受检单位", editableFields.displayValue(\.inspectedUnit))
-                previewRow("检查时间", editableFields.displayValue(\.inspectionDate))
-                previewRow("记录数量", "\(previewData.basicInfo.recordCount) 项")
-            }
+            keyValueTable([
+                ("报告标题", editableFields.displayValue(\.reportTitle)),
+                ("项目名称", editableFields.displayValue(\.projectName)),
+                ("检查单位", editableFields.displayValue(\.inspectionUnit)),
+                ("受检单位", editableFields.displayValue(\.inspectedUnit)),
+                ("检查时间", editableFields.displayValue(\.inspectionDate)),
+                ("记录数量", "\(previewData.basicInfo.recordCount) 项")
+            ])
         case .narrative:
             Text(editableFields.displayValue(\.narrativeText))
                 .font(.subheadline)
@@ -140,6 +140,34 @@ struct ReportModulePreviewView: View {
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func keyValueTable(_ rows: [(String, String)]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(rows.indices, id: \.self) { index in
+                HStack(spacing: 0) {
+                    Text(rows[index].0)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 76, alignment: .leading)
+                        .padding(6)
+                        .background(Color(.tertiarySystemBackground))
+                    Text(rows[index].1)
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(6)
+                }
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color(.separator))
+                        .frame(height: 0.5)
+                }
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color(.separator), lineWidth: 0.5)
+        )
     }
 
     private func photoPlaceholder(_ title: String) -> some View {

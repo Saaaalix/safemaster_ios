@@ -22,13 +22,6 @@ enum ReportTemplatePDFExporter {
         }
     }
 
-    private static let pageWidth: CGFloat = 595
-    private static let pageHeight: CGFloat = 842
-    private static let margin: CGFloat = 72 * 2.5 / 2.54
-    private static var contentWidth: CGFloat { pageWidth - margin * 2 }
-    private static let rowPadding: CGFloat = 6
-    private static let maxImageHeight: CGFloat = 145
-
     static func buildTemporaryFileURL(
         template: ReportTemplate,
         previewData: ReportTemplatePreviewData,
@@ -37,83 +30,127 @@ enum ReportTemplatePDFExporter {
         let modules = template.enabledModules
         guard !modules.isEmpty else { throw ExportError.noEnabledModules }
 
-        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight))
-        let data = renderer.pdfData { context in
-            context.beginPage()
-            var y = margin
-
-            drawParagraph(
-                editableFields.displayValue(\.reportTitle, fallback: template.name),
-                font: .boldSystemFont(ofSize: 22),
-                alignment: .center,
-                y: &y,
-                context: context
-            )
-            drawParagraph("报告日期：\(editableFields.displayValue(\.signatureDate, fallback: previewData.basicInfo.reportDate))", font: .systemFont(ofSize: 12), alignment: .center, y: &y, context: context)
-            y += 8
-
-            for module in modules {
-                ensureSpace(context, y: &y, needed: 60)
-                drawParagraph(module.title, font: .boldSystemFont(ofSize: 16), y: &y, context: context)
-
-                switch module.type {
-                case .basicInfo:
-                    drawBasicInfo(previewData.basicInfo, editableFields: editableFields, y: &y, context: context)
-                case .narrative:
-                    drawParagraph(editableFields.displayValue(\.narrativeText), font: .systemFont(ofSize: 12), y: &y, context: context)
-                case .rectificationList:
-                    drawRectificationList(previewData.rectificationItems, y: &y, context: context)
-                case .photoComparison:
-                    drawPhotoComparisons(previewData.photoComparisons, y: &y, context: context)
-                case .signature:
-                    drawSignature(editableFields, y: &y, context: context)
-                case .notes:
-                    drawNotes(editableFields, y: &y, context: context)
-                }
-
-                y += 10
-            }
-        }
+        let pageCount = renderPDF(
+            template: template,
+            modules: modules,
+            previewData: previewData,
+            editableFields: editableFields,
+            totalPages: nil
+        ).pageCount
+        let rendered = renderPDF(
+            template: template,
+            modules: modules,
+            previewData: previewData,
+            editableFields: editableFields,
+            totalPages: pageCount
+        )
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("安全大师_模板报告_\(Int(Date().timeIntervalSince1970)).pdf")
         do {
-            try data.write(to: url)
+            try rendered.data.write(to: url)
             return url
         } catch {
             throw ExportError.writeFailed
         }
     }
 
+    private static func renderPDF(
+        template: ReportTemplate,
+        modules: [ReportModule],
+        previewData: ReportTemplatePreviewData,
+        editableFields: ReportTemplateEditableFields,
+        totalPages: Int?
+    ) -> (data: Data, pageCount: Int) {
+        let bounds = CGRect(x: 0, y: 0, width: PDFPage.width, height: PDFPage.height)
+        let renderer = UIGraphicsPDFRenderer(bounds: bounds)
+        var finalPageCount = 0
+        let data = renderer.pdfData { context in
+            var session = PDFDrawingSession(context: context, totalPages: totalPages)
+            session.beginPage()
+            drawCoverTitle(template: template, previewData: previewData, editableFields: editableFields, session: &session)
+
+            for module in modules {
+                session.ensureSpace(64)
+                session.drawSectionTitle(module.title)
+                switch module.type {
+                case .basicInfo:
+                    drawBasicInfo(previewData.basicInfo, editableFields: editableFields, session: &session)
+                case .narrative:
+                    session.drawParagraph(editableFields.displayValue(\.narrativeText), firstLineHeadIndent: 24)
+                case .rectificationList:
+                    drawRectificationList(previewData.rectificationItems, session: &session)
+                case .photoComparison:
+                    drawPhotoComparisons(previewData.photoComparisons, session: &session)
+                case .signature:
+                    drawSignature(editableFields, session: &session)
+                case .notes:
+                    drawNotes(editableFields, session: &session)
+                }
+                session.y += 12
+            }
+            session.finish()
+            finalPageCount = session.pageNumber
+        }
+        return (data, finalPageCount)
+    }
+
+    private static func drawCoverTitle(
+        template: ReportTemplate,
+        previewData: ReportTemplatePreviewData,
+        editableFields: ReportTemplateEditableFields,
+        session: inout PDFDrawingSession
+    ) {
+        session.drawParagraph(
+            editableFields.displayValue(\.reportTitle, fallback: template.name),
+            font: .boldSystemFont(ofSize: 24),
+            alignment: .center,
+            lineHeightMultiple: 1.3,
+            bottomSpacing: 6
+        )
+        session.drawParagraph(
+            "报告日期：\(editableFields.displayValue(\.signatureDate, fallback: previewData.basicInfo.reportDate))",
+            font: .systemFont(ofSize: 12),
+            color: .darkGray,
+            alignment: .center,
+            bottomSpacing: 18
+        )
+        session.drawDivider()
+    }
+
     private static func drawBasicInfo(
         _ info: ReportBasicInfoPreviewData,
         editableFields: ReportTemplateEditableFields,
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
+        session: inout PDFDrawingSession
     ) {
-        drawKeyValueRows([
-            ("报告标题", editableFields.displayValue(\.reportTitle)),
+        let rows = [
             ("项目名称", editableFields.displayValue(\.projectName)),
             ("检查单位", editableFields.displayValue(\.inspectionUnit)),
             ("受检单位", editableFields.displayValue(\.inspectedUnit)),
             ("检查时间", editableFields.displayValue(\.inspectionDate)),
             ("记录数量", "\(info.recordCount) 项")
-        ], y: &y, context: context)
+        ]
+        session.drawKeyValueTable(rows)
     }
 
     private static func drawRectificationList(
         _ items: [ReportRectificationItemPreviewData],
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
+        session: inout PDFDrawingSession
     ) {
-        let columnWidths: [CGFloat] = [32, 140, 140, 66, contentWidth - 32 - 140 - 140 - 66]
-        drawTableRow(["序号", "隐患描述", "整改情况", "风险等级", "责任人"], columnWidths: columnWidths, isHeader: true, y: &y, context: context)
+        let columns: [PDFTableColumn] = [
+            PDFTableColumn(title: "序号", width: 32),
+            PDFTableColumn(title: "隐患描述", width: 142),
+            PDFTableColumn(title: "整改措施/整改情况", width: 152),
+            PDFTableColumn(title: "风险等级", width: 64),
+            PDFTableColumn(title: "责任人", width: PDFPage.contentWidth - 32 - 142 - 152 - 64)
+        ]
+        session.drawTableHeader(columns: columns)
         if items.isEmpty {
-            drawTableRow(["-", "未填写", "未填写", "未填写", "未填写"], columnWidths: columnWidths, y: &y, context: context)
+            session.drawTableRow(["-", "未填写", "未填写", "未填写", "未填写"], columns: columns, repeatsHeader: true)
             return
         }
         for item in items {
-            drawTableRow(
+            session.drawTableRow(
                 [
                     "\(item.index)",
                     item.issueDescription,
@@ -121,109 +158,318 @@ enum ReportTemplatePDFExporter {
                     item.riskLevel,
                     item.responsibleParty
                 ],
-                columnWidths: columnWidths,
-                y: &y,
-                context: context
+                columns: columns,
+                repeatsHeader: true
             )
         }
     }
 
     private static func drawPhotoComparisons(
         _ items: [ReportPhotoComparisonPreviewData],
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
+        session: inout PDFDrawingSession
     ) {
-        if items.isEmpty {
-            drawParagraph("暂无照片", font: .systemFont(ofSize: 12), color: .gray, y: &y, context: context)
+        guard !items.isEmpty else {
+            session.drawBorderedText(title: nil, body: "暂无照片")
             return
         }
 
-        let gap: CGFloat = 12
-        let imageWidth = (contentWidth - gap) / 2
         for item in items {
-            ensureSpace(context, y: &y, needed: 220)
-            drawParagraph("隐患 \(item.index)", font: .boldSystemFont(ofSize: 13), y: &y, context: context)
+            session.ensureSpace(260)
+            session.drawSmallHeading("隐患 \(item.index)")
+            session.drawBorderedText(title: "问题说明", body: item.issueDescription)
+            session.drawBorderedText(title: "整改说明", body: item.rectificationDescription)
 
-            let startY = y
-            let leftHeight = drawImageOrPlaceholder(
+            let imageHeight: CGFloat = 145
+            session.ensureSpace(imageHeight + 34)
+            let gap: CGFloat = 14
+            let imageWidth = (PDFPage.contentWidth - gap) / 2
+            let top = session.y
+            session.drawImageBox(
                 data: item.beforePhotoData,
                 placeholder: "整改前照片未添加",
-                x: margin,
-                y: y,
-                width: imageWidth
+                title: "整改前",
+                rect: CGRect(x: PDFPage.margin, y: top, width: imageWidth, height: imageHeight)
             )
-            let rightHeight = drawImageOrPlaceholder(
+            session.drawImageBox(
                 data: item.afterPhotoData,
                 placeholder: "整改后照片未添加",
-                x: margin + imageWidth + gap,
-                y: y,
-                width: imageWidth
+                title: "整改后",
+                rect: CGRect(x: PDFPage.margin + imageWidth + gap, y: top, width: imageWidth, height: imageHeight)
             )
-            y = startY + max(leftHeight, rightHeight) + 10
-
-            drawLabeledBlock(title: "问题说明", body: item.issueDescription, y: &y, context: context)
-            drawLabeledBlock(title: "整改说明", body: item.rectificationDescription, y: &y, context: context)
+            session.y = top + imageHeight + 34
         }
     }
 
     private static func drawSignature(
         _ editableFields: ReportTemplateEditableFields,
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
+        session: inout PDFDrawingSession
     ) {
-        drawKeyValueRows([
+        let rows = [
             ("整改负责人", editableFields.displayValue(\.rectificationResponsiblePerson)),
             ("安全总监", editableFields.displayValue(\.safetyDirector)),
             ("项目负责人", editableFields.displayValue(\.projectManager)),
             ("复查人", editableFields.displayValue(\.reviewer)),
             ("日期", editableFields.displayValue(\.signatureDate))
-        ], y: &y, context: context)
+        ]
+        session.drawSignatureGrid(rows)
     }
 
     private static func drawNotes(
         _ editableFields: ReportTemplateEditableFields,
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
+        session: inout PDFDrawingSession
     ) {
-        drawLabeledBlock(title: "复查意见", body: editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注"), y: &y, context: context)
-        drawLabeledBlock(title: "补充说明", body: editableFields.displayValue(\.additionalNotes, fallback: "暂无备注"), y: &y, context: context)
+        session.drawBorderedText(
+            title: "复查意见",
+            body: editableFields.displayValue(\.reviewOpinion, fallback: "暂无备注")
+        )
+        session.drawBorderedText(
+            title: "补充说明",
+            body: editableFields.displayValue(\.additionalNotes, fallback: "暂无备注")
+        )
+    }
+}
+
+private enum PDFPage {
+    static let width: CGFloat = 595
+    static let height: CGFloat = 842
+    static let margin: CGFloat = 62
+    static let footerHeight: CGFloat = 32
+    static var contentWidth: CGFloat { width - margin * 2 }
+    static var contentBottom: CGFloat { height - margin - footerHeight }
+}
+
+private struct PDFTableColumn {
+    var title: String
+    var width: CGFloat
+}
+
+private struct PDFDrawingSession {
+    var context: UIGraphicsPDFRendererContext
+    var totalPages: Int?
+    var pageNumber = 0
+    var y: CGFloat = PDFPage.margin
+    private var lastTableColumns: [PDFTableColumn] = []
+
+    init(context: UIGraphicsPDFRendererContext, totalPages: Int?) {
+        self.context = context
+        self.totalPages = totalPages
     }
 
-    private static func drawKeyValueRows(
-        _ rows: [(String, String)],
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
+    mutating func beginPage() {
+        context.beginPage()
+        pageNumber += 1
+        y = PDFPage.margin
+    }
+
+    mutating func finish() {
+        drawFooterIfNeeded()
+    }
+
+    mutating func ensureSpace(_ needed: CGFloat) {
+        if y + needed > PDFPage.contentBottom {
+            drawFooterIfNeeded()
+            beginPage()
+        }
+    }
+
+    mutating func drawSectionTitle(_ title: String) {
+        drawParagraph(title, font: .boldSystemFont(ofSize: 16), bottomSpacing: 8)
+    }
+
+    mutating func drawSmallHeading(_ title: String) {
+        drawParagraph(title, font: .boldSystemFont(ofSize: 13), bottomSpacing: 6)
+    }
+
+    mutating func drawParagraph(
+        _ text: String,
+        font: UIFont = .systemFont(ofSize: 12),
+        color: UIColor = .black,
+        alignment: NSTextAlignment = .left,
+        lineHeightMultiple: CGFloat = 1.45,
+        firstLineHeadIndent: CGFloat = 0,
+        bottomSpacing: CGFloat = 10
     ) {
+        let attrs = Self.textAttributes(
+            font: font,
+            color: color,
+            alignment: alignment,
+            lineHeightMultiple: lineHeightMultiple,
+            firstLineHeadIndent: firstLineHeadIndent
+        )
+        let height = Self.textHeight(text, width: PDFPage.contentWidth, attributes: attrs)
+        ensureSpace(height + bottomSpacing)
+        (text as NSString).draw(
+            with: CGRect(x: PDFPage.margin, y: y, width: PDFPage.contentWidth, height: height),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attrs,
+            context: nil
+        )
+        y += height + bottomSpacing
+    }
+
+    mutating func drawDivider() {
+        ensureSpace(14)
+        UIColor(white: 0.78, alpha: 1).setStroke()
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: PDFPage.margin, y: y))
+        path.addLine(to: CGPoint(x: PDFPage.width - PDFPage.margin, y: y))
+        path.lineWidth = 0.8
+        path.stroke()
+        y += 18
+    }
+
+    mutating func drawKeyValueTable(_ rows: [(String, String)]) {
+        let labelWidth: CGFloat = 110
         for row in rows {
-            drawLabeledBlock(title: row.0, body: row.1, y: &y, context: context)
+            let labelAttrs = Self.textAttributes(font: .boldSystemFont(ofSize: 11), color: .darkGray)
+            let valueAttrs = Self.textAttributes(font: .systemFont(ofSize: 11))
+            let labelHeight = Self.textHeight(row.0, width: labelWidth - 12, attributes: labelAttrs)
+            let valueHeight = Self.textHeight(row.1, width: PDFPage.contentWidth - labelWidth - 12, attributes: valueAttrs)
+            let rowHeight = max(28, max(labelHeight, valueHeight) + 12)
+            ensureSpace(rowHeight)
+            drawCellBackground(CGRect(x: PDFPage.margin, y: y, width: labelWidth, height: rowHeight), fill: UIColor(white: 0.95, alpha: 1))
+            drawCellBackground(CGRect(x: PDFPage.margin + labelWidth, y: y, width: PDFPage.contentWidth - labelWidth, height: rowHeight))
+            (row.0 as NSString).draw(
+                with: CGRect(x: PDFPage.margin + 6, y: y + 6, width: labelWidth - 12, height: rowHeight - 12),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: labelAttrs,
+                context: nil
+            )
+            (row.1 as NSString).draw(
+                with: CGRect(x: PDFPage.margin + labelWidth + 6, y: y + 6, width: PDFPage.contentWidth - labelWidth - 12, height: rowHeight - 12),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: valueAttrs,
+                context: nil
+            )
+            y += rowHeight
+        }
+        y += 12
+    }
+
+    mutating func drawTableHeader(columns: [PDFTableColumn]) {
+        lastTableColumns = columns
+        let attrs = Self.textAttributes(font: .boldSystemFont(ofSize: 10))
+        let heights = columns.map { Self.textHeight($0.title, width: $0.width - 10, attributes: attrs) + 10 }
+        let rowHeight = max(28, heights.max() ?? 28)
+        ensureSpace(rowHeight)
+        drawTableCells(columns.map(\.title), columns: columns, rowHeight: rowHeight, attrs: attrs, fill: UIColor(white: 0.93, alpha: 1))
+    }
+
+    mutating func drawTableRow(_ values: [String], columns: [PDFTableColumn], repeatsHeader: Bool) {
+        let attrs = Self.textAttributes(font: .systemFont(ofSize: 10), color: .darkGray)
+        let heights = values.enumerated().map { index, value in
+            Self.textHeight(value, width: columns[index].width - 10, attributes: attrs) + 10
+        }
+        let rowHeight = max(30, heights.max() ?? 30)
+        if y + rowHeight > PDFPage.contentBottom {
+            drawFooterIfNeeded()
+            beginPage()
+            if repeatsHeader {
+                drawTableHeader(columns: columns)
+            }
+        }
+        drawTableCells(values, columns: columns, rowHeight: rowHeight, attrs: attrs, fill: .white)
+    }
+
+    mutating func drawBorderedText(title: String?, body: String) {
+        let titleAttrs = Self.textAttributes(font: .boldSystemFont(ofSize: 11), color: .darkGray)
+        let bodyAttrs = Self.textAttributes(font: .systemFont(ofSize: 11), lineHeightMultiple: 1.4)
+        let titleHeight: CGFloat = title.map { Self.textHeight($0, width: PDFPage.contentWidth - 14, attributes: titleAttrs) + 4 } ?? 0
+        let bodyHeight = Self.textHeight(body, width: PDFPage.contentWidth - 14, attributes: bodyAttrs)
+        let boxHeight = max(44, titleHeight + bodyHeight + 16)
+        ensureSpace(boxHeight + 8)
+        let rect = CGRect(x: PDFPage.margin, y: y, width: PDFPage.contentWidth, height: boxHeight)
+        drawCellBackground(rect)
+        var textY = y + 8
+        if let title {
+            (title as NSString).draw(
+                with: CGRect(x: PDFPage.margin + 7, y: textY, width: PDFPage.contentWidth - 14, height: titleHeight),
+                options: [.usesLineFragmentOrigin],
+                attributes: titleAttrs,
+                context: nil
+            )
+            textY += titleHeight
+        }
+        (body as NSString).draw(
+            with: CGRect(x: PDFPage.margin + 7, y: textY, width: PDFPage.contentWidth - 14, height: bodyHeight),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: bodyAttrs,
+            context: nil
+        )
+        y += boxHeight + 10
+    }
+
+    mutating func drawSignatureGrid(_ rows: [(String, String)]) {
+        let colGap: CGFloat = 16
+        let colWidth = (PDFPage.contentWidth - colGap) / 2
+        let rowHeight: CGFloat = 38
+        for pairStart in stride(from: 0, to: rows.count, by: 2) {
+            ensureSpace(rowHeight)
+            for offset in 0..<2 {
+                let index = pairStart + offset
+                guard rows.indices.contains(index) else { continue }
+                let x = PDFPage.margin + CGFloat(offset) * (colWidth + colGap)
+                drawSignatureCell(title: rows[index].0, value: rows[index].1, rect: CGRect(x: x, y: y, width: colWidth, height: rowHeight))
+            }
+            y += rowHeight + 10
         }
     }
 
-    private static func drawTableRow(
-        _ values: [String],
-        columnWidths: [CGFloat],
-        isHeader: Bool = false,
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
-    ) {
-        let font = isHeader ? UIFont.boldSystemFont(ofSize: 10) : UIFont.systemFont(ofSize: 10)
-        let attrs = textAttributes(font: font, color: isHeader ? .black : .darkGray)
-        let heights = values.enumerated().map { index, value in
-            textHeight(value, width: columnWidths[index] - rowPadding * 2, attributes: attrs) + rowPadding * 2
+    func drawImageBox(data: Data?, placeholder: String, title: String, rect: CGRect) {
+        let imageRect = rect.insetBy(dx: 0, dy: 18)
+        if let data, let image = UIImage(data: data), image.size.width > 1, image.size.height > 1 {
+            drawFittedImage(image, in: imageRect)
+        } else {
+            drawPlaceholder(placeholder, in: imageRect)
         }
-        let rowHeight = max(28, (heights.max() ?? 28))
-        ensureSpace(context, y: &y, needed: rowHeight + 2)
+        let attrs = Self.textAttributes(font: .boldSystemFont(ofSize: 10), color: .darkGray, alignment: .center)
+        (title as NSString).draw(
+            with: CGRect(x: rect.minX, y: imageRect.maxY + 5, width: rect.width, height: 16),
+            options: [.usesLineFragmentOrigin],
+            attributes: attrs,
+            context: nil
+        )
+    }
 
-        var x = margin
+    private func drawFittedImage(_ image: UIImage, in rect: CGRect) {
+        let scale = min(rect.width / image.size.width, rect.height / image.size.height)
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let imageRect = CGRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height)
+        UIColor(white: 0.98, alpha: 1).setFill()
+        UIBezierPath(rect: rect).fill()
+        image.draw(in: imageRect)
+        UIColor(white: 0.75, alpha: 1).setStroke()
+        UIBezierPath(rect: rect).stroke()
+    }
+
+    private func drawPlaceholder(_ text: String, in rect: CGRect) {
+        UIColor(white: 0.96, alpha: 1).setFill()
+        UIBezierPath(rect: rect).fill()
+        UIColor(white: 0.75, alpha: 1).setStroke()
+        UIBezierPath(rect: rect).stroke()
+        let attrs = Self.textAttributes(font: .systemFont(ofSize: 11), color: .gray, alignment: .center)
+        (text as NSString).draw(
+            with: rect.insetBy(dx: 8, dy: max(8, rect.height / 2 - 10)),
+            options: [.usesLineFragmentOrigin],
+            attributes: attrs,
+            context: nil
+        )
+    }
+
+    private mutating func drawTableCells(
+        _ values: [String],
+        columns: [PDFTableColumn],
+        rowHeight: CGFloat,
+        attrs: [NSAttributedString.Key: Any],
+        fill: UIColor
+    ) {
+        var x = PDFPage.margin
         for (index, value) in values.enumerated() {
-            let width = columnWidths[index]
+            let width = columns[index].width
             let rect = CGRect(x: x, y: y, width: width, height: rowHeight)
-            (isHeader ? UIColor(white: 0.94, alpha: 1) : UIColor.white).setFill()
-            UIBezierPath(rect: rect).fill()
-            UIColor(white: 0.78, alpha: 1).setStroke()
-            UIBezierPath(rect: rect).stroke()
+            drawCellBackground(rect, fill: fill)
             (value as NSString).draw(
-                with: rect.insetBy(dx: rowPadding, dy: rowPadding),
+                with: rect.insetBy(dx: 5, dy: 5),
                 options: [.usesLineFragmentOrigin, .usesFontLeading],
                 attributes: attrs,
                 context: nil
@@ -233,102 +479,56 @@ enum ReportTemplatePDFExporter {
         y += rowHeight
     }
 
-    private static func drawLabeledBlock(
-        title: String,
-        body: String,
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
-    ) {
-        let titleFont = UIFont.boldSystemFont(ofSize: 12)
-        let bodyFont = UIFont.systemFont(ofSize: 12)
-        let titleAttrs = textAttributes(font: titleFont, color: UIColor(white: 0.18, alpha: 1))
-        let bodyAttrs = textAttributes(font: bodyFont)
-        let titleText = "\(title)："
-        let titleHeight = textHeight(titleText, width: contentWidth, attributes: titleAttrs)
-        let bodyHeight = textHeight(body, width: contentWidth, attributes: bodyAttrs)
-        ensureSpace(context, y: &y, needed: titleHeight + bodyHeight + 12)
-
-        (titleText as NSString).draw(with: CGRect(x: margin, y: y, width: contentWidth, height: titleHeight), options: [.usesLineFragmentOrigin], attributes: titleAttrs, context: nil)
-        y += titleHeight + 2
-        (body as NSString).draw(with: CGRect(x: margin, y: y, width: contentWidth, height: bodyHeight), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: bodyAttrs, context: nil)
-        y += bodyHeight + 10
-    }
-
-    private static func drawParagraph(
-        _ text: String,
-        font: UIFont,
-        color: UIColor = .black,
-        alignment: NSTextAlignment = .left,
-        y: inout CGFloat,
-        context: UIGraphicsPDFRendererContext
-    ) {
-        let attrs = textAttributes(font: font, color: color, alignment: alignment)
-        let height = textHeight(text, width: contentWidth, attributes: attrs)
-        ensureSpace(context, y: &y, needed: height + 8)
-        (text as NSString).draw(with: CGRect(x: margin, y: y, width: contentWidth, height: height), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attrs, context: nil)
-        y += height + 8
-    }
-
-    @discardableResult
-    private static func drawImageOrPlaceholder(
-        data: Data?,
-        placeholder: String,
-        x: CGFloat,
-        y: CGFloat,
-        width: CGFloat
-    ) -> CGFloat {
-        guard let data, let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 else {
-            return drawPlaceholder(placeholder, x: x, y: y, width: width)
-        }
-
-        let ratio = min(width / image.size.width, maxImageHeight / image.size.height)
-        let drawWidth = image.size.width * ratio
-        let drawHeight = image.size.height * ratio
-        let rect = CGRect(x: x, y: y, width: drawWidth, height: drawHeight)
-        image.draw(in: rect)
-        UIColor(white: 0.8, alpha: 1).setStroke()
-        UIBezierPath(rect: rect).stroke()
-        return drawHeight
-    }
-
-    @discardableResult
-    private static func drawPlaceholder(
-        _ text: String,
-        x: CGFloat,
-        y: CGFloat,
-        width: CGFloat
-    ) -> CGFloat {
-        let height: CGFloat = 92
-        let rect = CGRect(x: x, y: y, width: width, height: height)
-        UIColor(white: 0.96, alpha: 1).setFill()
+    private func drawCellBackground(_ rect: CGRect, fill: UIColor = .white) {
+        fill.setFill()
         UIBezierPath(rect: rect).fill()
-        UIColor(white: 0.75, alpha: 1).setStroke()
-        UIBezierPath(rect: rect).stroke()
-        let attrs = textAttributes(font: .systemFont(ofSize: 11), color: .gray, alignment: .center)
-        (text as NSString).draw(with: rect.insetBy(dx: 8, dy: 34), options: [.usesLineFragmentOrigin], attributes: attrs, context: nil)
-        return height
+        UIColor(white: 0.72, alpha: 1).setStroke()
+        let path = UIBezierPath(rect: rect)
+        path.lineWidth = 0.6
+        path.stroke()
     }
 
-    private static func ensureSpace(
-        _ context: UIGraphicsPDFRendererContext,
-        y: inout CGFloat,
-        needed: CGFloat
-    ) {
-        if y + needed > pageHeight - margin {
-            context.beginPage()
-            y = margin
-        }
+    private func drawSignatureCell(title: String, value: String, rect: CGRect) {
+        let attrs = Self.textAttributes(font: .systemFont(ofSize: 11))
+        let text = "\(title)：\(value)"
+        (text as NSString).draw(
+            with: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: 18),
+            options: [.usesLineFragmentOrigin],
+            attributes: attrs,
+            context: nil
+        )
+        UIColor(white: 0.35, alpha: 1).setStroke()
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: rect.minX + 66, y: rect.minY + 28))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + 28))
+        path.lineWidth = 0.7
+        path.stroke()
+    }
+
+    private func drawFooterIfNeeded() {
+        guard let totalPages else { return }
+        let footer = "第 \(pageNumber) 页 / 共 \(totalPages) 页"
+        let attrs = Self.textAttributes(font: .systemFont(ofSize: 10), color: .gray, alignment: .center)
+        (footer as NSString).draw(
+            with: CGRect(x: PDFPage.margin, y: PDFPage.height - PDFPage.margin - 8, width: PDFPage.contentWidth, height: 16),
+            options: [.usesLineFragmentOrigin],
+            attributes: attrs,
+            context: nil
+        )
     }
 
     private static func textAttributes(
         font: UIFont,
         color: UIColor = .black,
-        alignment: NSTextAlignment = .left
+        alignment: NSTextAlignment = .left,
+        lineHeightMultiple: CGFloat = 1.35,
+        firstLineHeadIndent: CGFloat = 0
     ) -> [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = alignment
         paragraph.lineBreakMode = .byWordWrapping
-        paragraph.lineHeightMultiple = 1.35
+        paragraph.lineHeightMultiple = lineHeightMultiple
+        paragraph.firstLineHeadIndent = firstLineHeadIndent
         return [
             .font: font,
             .foregroundColor: color,
@@ -336,11 +536,7 @@ enum ReportTemplatePDFExporter {
         ]
     }
 
-    private static func textHeight(
-        _ text: String,
-        width: CGFloat,
-        attributes: [NSAttributedString.Key: Any]
-    ) -> CGFloat {
+    private static func textHeight(_ text: String, width: CGFloat, attributes: [NSAttributedString.Key: Any]) -> CGFloat {
         ceil((text as NSString).boundingRect(
             with: CGSize(width: width, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],

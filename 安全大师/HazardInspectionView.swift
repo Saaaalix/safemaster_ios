@@ -18,9 +18,16 @@ struct HazardInspectionView: View {
     @State private var formProjectName: String = ""
     @State private var formInspectorName: String = ""
     @State private var formProjectAbbreviation: String = ""
+    @State private var formResponsiblePerson: String = ""
+    @State private var formResponsibleUnit: String = ""
 
     /// 现场照片（顺序即主图、副图；至多 `HazardForm.maxSitePhotos` 张）。
     @State private var hazardSitePhotos: [Data] = []
+    @State private var hazardSitePhotoImportedAt: [Date] = []
+    @State private var selectedPhotoPreview: SitePhotoPreview?
+    @State private var replacingSitePhotoIndex: Int?
+    @State private var sitePhotoMessage: String?
+    @State private var sitePhotoFailureNotice = false
 #if os(iOS)
     @State private var cameraCaptureBuffer: Data?
 #endif
@@ -46,6 +53,11 @@ struct HazardInspectionView: View {
     @State private var immediateRectPhotoData: Data?
     @State private var immediateRectPickerItem: PhotosPickerItem?
     @State private var showOptionalContext = false
+    @State private var selectedHazardTypeTags: Set<String> = []
+    @State private var showSavedActions = false
+    @State private var lastSavedMessage: String?
+    @State private var userManuallyChangedRisk = false
+    @State private var userManuallyChangedIntent = false
 
 #if os(iOS) || os(visionOS) || os(macOS)
     @StateObject private var voiceTranscriber = HazardVoiceTranscriber()
@@ -68,6 +80,19 @@ struct HazardInspectionView: View {
         static let maxSitePhotos = 2
     }
 
+    private static let hazardTypeTags = [
+        "临边防护",
+        "临时用电",
+        "消防",
+        "机械设备",
+        "高处作业",
+        "文明施工",
+        "个人防护",
+        "基坑",
+        "脚手架",
+        "吊装"
+    ]
+
     private static let productivityAccent = Color(red: 0.95, green: 0.65, blue: 0.3)
 
     private static let dueDateFormatter: DateFormatter = {
@@ -75,6 +100,14 @@ struct HazardInspectionView: View {
         f.locale = Locale(identifier: "zh_CN")
         f.calendar = Calendar(identifier: .gregorian)
         f.dateFormat = "yyyy年M月d日"
+        return f
+    }()
+
+    private static let photoTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd HH:mm"
         return f
     }()
 
@@ -108,6 +141,28 @@ struct HazardInspectionView: View {
 
     private var hasImmediateRectificationPrefill: Bool {
         !trimmedImmediateRectNote.isEmpty || immediateRectPhotoData != nil
+    }
+
+    private var currentQuickSuggestion: QuickHazardSuggestion? {
+        QuickHazardSuggestion.suggest(
+            text: supplementaryText,
+            tags: Array(selectedHazardTypeTags)
+        )
+    }
+
+    private var selectedHazardTypeTagsOrdered: [String] {
+        Self.hazardTypeTags.filter { selectedHazardTypeTags.contains($0) }
+    }
+
+    private var effectiveSupplementaryText: String {
+        supplementaryText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var combinedResponsiblePartyForDisplay: String {
+        [formResponsiblePerson, formResponsibleUnit]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " / ")
     }
 
     /// 可解码预览的 `(hazardSitePhotos 下标, Image)`，用于并列缩略图与删除（下标与 `hazardSitePhotos` 一致）。
@@ -225,6 +280,8 @@ struct HazardInspectionView: View {
 
                 hazardPhotoGallery
 
+                hazardTypeTagSection
+
                 inspectionCard(title: "隐患简短记录", systemImage: "text.bubble") {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top, spacing: 8) {
@@ -280,12 +337,11 @@ struct HazardInspectionView: View {
                         }
                         .disabled(!hasHazardDescription)
                         .onChange(of: selectedRiskLevelForForm) { _, new in
+                            userManuallyChangedRisk = true
                             userRiskLevelOverride = HazardRiskLevel.normalizedForStorage(new.isEmpty ? nil : new)
                         }
 
-                        Text("可先不选，在隐患详情中结合 AI 建议与实际情况再确认。")
-                            .font(.caption)
-                            .foregroundStyle(Color(.secondaryLabel))
+                        quickSuggestionView
 
                         Divider().opacity(0.35)
 
@@ -295,6 +351,9 @@ struct HazardInspectionView: View {
                         }
                         .pickerStyle(.segmented)
                         .disabled(!hasHazardDescription)
+                        .onChange(of: rectificationIntent) { _, _ in
+                            userManuallyChangedIntent = true
+                        }
 
                         Button(action: presentRectificationIntentSheet) {
                             Label(
@@ -320,36 +379,6 @@ struct HazardInspectionView: View {
                     }
                 }
 
-                inspectionCard(title: "保存记录", systemImage: "tray.and.arrow.down") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Button(action: saveQuickRecordTapped) {
-                            if isAnalyzing {
-                                HStack {
-                                    Spacer()
-                                    ProgressView("保存中…")
-                                        .tint(.white)
-                                    Spacer()
-                                }
-                            } else {
-                                Label("保存记录", systemImage: "tray.and.arrow.down")
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Self.productivityAccent)
-                        .disabled(isAnalyzing || !hasMinimumInput)
-
-                        Label {
-                            Text("保存后进入「排查记录」，在隐患详情中可继续补充正式字段、使用 AI 辅助分析图片和生成整改建议。")
-                                .font(.caption)
-                                .foregroundStyle(Color(.secondaryLabel))
-                        } icon: {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(Color(.secondaryLabel))
-                        }
-                    }
-                }
-
                 if let analysisError {
                     inspectionCard(title: "诊断异常", systemImage: "exclamationmark.triangle") {
                         Text(analysisError)
@@ -368,16 +397,7 @@ struct HazardInspectionView: View {
 
             if focusedField == nil {
                 Divider()
-
-                Button {
-                    path.append(.inspectionRecordFlatList)
-                } label: {
-                    Label("排查记录", systemImage: "list.bullet.rectangle")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                .foregroundStyle(.primary)
-                .background(.ultraThinMaterial)
+                quickSaveBottomBar
             }
         }
         .background(Color(.systemGroupedBackground))
@@ -405,16 +425,20 @@ struct HazardInspectionView: View {
                     } else {
                         ForEach(hazardSitePhotoPairs, id: \.offset) { pair in
                             ZStack(alignment: .topTrailing) {
-                                pair.image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 220)
-                                    .background(Color.black.opacity(0.06))
+                                Button {
+                                    selectedPhotoPreview = makeSitePhotoPreview(for: pair.offset)
+                                } label: {
+                                    pair.image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 220)
+                                        .background(Color.black.opacity(0.06))
+                                }
+                                .buttonStyle(.plain)
 
                                 Button {
-                                    guard hazardSitePhotos.indices.contains(pair.offset) else { return }
-                                    hazardSitePhotos.remove(at: pair.offset)
+                                    deleteSitePhoto(at: pair.offset)
                                 } label: {
                                     Image(systemName: "trash.fill")
                                         .font(.system(size: 13, weight: .semibold))
@@ -429,6 +453,10 @@ struct HazardInspectionView: View {
                                 photoIndexBadge(pair.offset)
                                     .padding(12)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+
+                                photoTimeBadge(pair.offset)
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                             }
                         }
                     }
@@ -456,8 +484,142 @@ struct HazardInspectionView: View {
             Text("同一隐患最多添加 \(HazardForm.maxSitePhotos) 张现场照片（可选）。有照片时会先经本机 Vision 提取摘要再参与分析。")
                 .font(.caption)
                 .foregroundStyle(Color(.secondaryLabel))
+
+            if let sitePhotoMessage {
+                Label(sitePhotoMessage, systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
         }
         .padding(.vertical, 8)
+    }
+
+    private var hazardTypeTagSection: some View {
+        inspectionCard(title: "隐患类型", systemImage: "tag.fill") {
+            VStack(alignment: .leading, spacing: 10) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 86), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(Self.hazardTypeTags, id: \.self) { tag in
+                        Button {
+                            toggleHazardTypeTag(tag)
+                        } label: {
+                            Label(tag, systemImage: selectedHazardTypeTags.contains(tag) ? "checkmark.circle.fill" : "circle")
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(selectedHazardTypeTags.contains(tag) ? Self.productivityAccent : .secondary)
+                    }
+                }
+                Text("可多选，标签会保存到详情页，并辅助风险类别和整改建议。")
+                    .font(.caption)
+                    .foregroundStyle(Color(.secondaryLabel))
+            }
+        }
+    }
+
+    private var quickSuggestionView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let suggestion = currentQuickSuggestion, hasHazardDescription {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("已根据关键词生成建议，可手动修改", systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Self.productivityAccent)
+                    HStack(spacing: 8) {
+                        suggestionPill("风险", suggestion.riskLevel)
+                        suggestionPill("类别", suggestion.accidentMinor)
+                        suggestionPill("整改", suggestion.intent.shortLabel)
+                    }
+                    Button {
+                        applyQuickSuggestion(suggestion, force: true)
+                    } label: {
+                        Label("采用建议", systemImage: "checkmark.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(10)
+                .background(Self.productivityAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                Text("可先不选，在隐患详情中结合 AI 建议与实际情况再确认。")
+                    .font(.caption)
+                    .foregroundStyle(Color(.secondaryLabel))
+            }
+        }
+    }
+
+    private func suggestionPill(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var quickSaveBottomBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !hasMinimumInput {
+                Label("请先填写一句现场事实", systemImage: "info.circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+            }
+            if let lastSavedMessage {
+                Label(lastSavedMessage, systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.green)
+            }
+            HStack(spacing: 10) {
+                Button(action: saveQuickRecordTapped) {
+                    if isAnalyzing {
+                        ProgressView("保存中…")
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Label("保存记录", systemImage: "tray.and.arrow.down")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Self.productivityAccent)
+                .disabled(isAnalyzing || !hasMinimumInput)
+
+                Button {
+                    path.append(.inspectionRecordFlatList)
+                } label: {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.title3)
+                        .frame(width: 42, height: 42)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("排查记录")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
+        .confirmationDialog(
+            "已保存到排查记录，可继续补充报告字段",
+            isPresented: $showSavedActions,
+            titleVisibility: .visible
+        ) {
+            Button("继续记录下一条") {
+                resetForNextQuickRecord()
+            }
+            Button("去补充详情") {
+                path.append(.inspectionRecordFlatList)
+            }
+            Button("取消", role: .cancel) {}
+        }
     }
 
     private var optionalContextDisclosure: some View {
@@ -469,6 +631,10 @@ struct HazardInspectionView: View {
                 ) {
                     TextField("项目名称", text: $formProjectName)
                         .focused($focusedField, equals: .reportProjectName)
+#if os(iOS)
+                        .textInputAutocapitalization(.never)
+#endif
+                        .autocorrectionDisabled(true)
                     RecentValueChipsView(kind: .projectName, text: $formProjectName)
                 }
 
@@ -480,7 +646,10 @@ struct HazardInspectionView: View {
                 ) {
                     TextField("例如：RCDD 或 润城二期", text: $formProjectAbbreviation)
                         .focused($focusedField, equals: .reportProjectAbbreviation)
-                        .textInputAutocapitalization(.characters)
+#if os(iOS)
+                        .textInputAutocapitalization(.never)
+#endif
+                        .autocorrectionDisabled(true)
                 }
 
                 Divider().opacity(0.35)
@@ -491,7 +660,39 @@ struct HazardInspectionView: View {
                 ) {
                     TextField("检查人姓名", text: $formInspectorName)
                         .focused($focusedField, equals: .reportInspectorName)
+#if os(iOS)
+                        .textInputAutocapitalization(.never)
+#endif
+                        .autocorrectionDisabled(true)
                     RecentValueChipsView(kind: .inspectorName, text: $formInspectorName)
+                }
+
+                Divider().opacity(0.35)
+
+                fieldBlock(
+                    title: "责任人",
+                    footer: "选填。用于新建整改轮次的责任人/班组，可在详情中继续修改。"
+                ) {
+                    TextField("责任人或班组", text: $formResponsiblePerson)
+#if os(iOS)
+                        .textInputAutocapitalization(.never)
+#endif
+                        .autocorrectionDisabled(true)
+                    RecentValueChipsView(kind: .rectificationResponsible, text: $formResponsiblePerson)
+                }
+
+                Divider().opacity(0.35)
+
+                fieldBlock(
+                    title: "责任单位",
+                    footer: "选填。连续记录同一单位问题时会自动带出。"
+                ) {
+                    TextField("责任单位", text: $formResponsibleUnit)
+#if os(iOS)
+                        .textInputAutocapitalization(.never)
+#endif
+                        .autocorrectionDisabled(true)
+                    RecentValueChipsView(kind: .rectificationResponsibleUnit, text: $formResponsibleUnit)
                 }
 
                 Divider().opacity(0.35)
@@ -503,6 +704,10 @@ struct HazardInspectionView: View {
                     HStack(spacing: 10) {
                         TextField("补充具体地点", text: $hazardLocationDetail)
                             .focused($focusedField, equals: .location)
+#if os(iOS)
+                            .textInputAutocapitalization(.never)
+#endif
+                            .autocorrectionDisabled(true)
 
                         Divider()
                             .frame(height: 24)
@@ -631,6 +836,16 @@ struct HazardInspectionView: View {
             .background(Color.black.opacity(0.35), in: Capsule())
     }
 
+    private func photoTimeBadge(_ index: Int) -> some View {
+        let date = hazardSitePhotoImportedAt.indices.contains(index) ? hazardSitePhotoImportedAt[index] : Date()
+        return Text("导入时间：\(Self.photoTimeFormatter.string(from: date))")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.black.opacity(0.35), in: Capsule())
+    }
+
     private func statusBanner(icon: String, title: String, message: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
@@ -741,6 +956,20 @@ struct HazardInspectionView: View {
                     addToCalendar: $scheduleAddToCalendar
                 )
             }
+            .sheet(item: $selectedPhotoPreview) { preview in
+                SitePhotoPreviewSheet(
+                    preview: preview,
+                    onDelete: {
+                        deleteSitePhoto(at: preview.index)
+                        selectedPhotoPreview = nil
+                    },
+                    onReplace: {
+                        replacingSitePhotoIndex = preview.index
+                        selectedPhotoPreview = nil
+                        showSitePhotoPicker = true
+                    }
+                )
+            }
     }
 
 #if os(iOS)
@@ -798,11 +1027,23 @@ struct HazardInspectionView: View {
                 Task {
                     if let data = try? await new.loadTransferable(type: Data.self) {
                         await MainActor.run {
-                            appendSitePhotoIfAllowed(data)
+                            appendSitePhotoIfAllowed(data, replacing: replacingSitePhotoIndex)
+                            replacingSitePhotoIndex = nil
                             pickerItem = nil
+                        }
+                    } else {
+                        await MainActor.run {
+                            replacingSitePhotoIndex = nil
+                            pickerItem = nil
+                            sitePhotoFailureNotice = true
                         }
                     }
                 }
+            }
+            .alert("照片添加失败", isPresented: $sitePhotoFailureNotice) {
+                Button("好的", role: .cancel) {}
+            } message: {
+                Text("照片添加失败，请重新选择或检查相册权限。")
             }
     }
 
@@ -810,8 +1051,7 @@ struct HazardInspectionView: View {
     private func attachLifecycleModifiers<Content: View>(_ content: Content) -> some View {
         content
             .onAppear {
-                formProjectName = ""
-                formInspectorName = ""
+                applyRecentQuickFieldsIfEmpty()
                 formProjectAbbreviation = ReportProjectSettingsStore.projectAbbreviationRaw
                 EvidenceLocationProvider.shared.start()
                 refreshDeepSeekConfiguredFlag()
@@ -833,6 +1073,11 @@ struct HazardInspectionView: View {
             .onChange(of: focusedField) { old, _ in
                 recordReportCoverFieldIfNeeded(leaving: old)
             }
+            .onChange(of: supplementaryText) { _, _ in
+                if let suggestion = currentQuickSuggestion {
+                    applyQuickSuggestion(suggestion, force: false)
+                }
+            }
     }
 
     private func recordReportCoverFieldIfNeeded(leaving field: InspectionFormField?) {
@@ -850,6 +1095,13 @@ struct HazardInspectionView: View {
         RecentFieldValuesStore.recordReportCover(
             projectName: formProjectName,
             inspectorName: formInspectorName
+        )
+        RecentFieldValuesStore.recordQuickInspectionFields(
+            projectName: formProjectName,
+            inspectorName: formInspectorName,
+            location: trimmedHazardLocation(),
+            responsiblePerson: formResponsiblePerson,
+            responsibleUnit: formResponsibleUnit
         )
         ReportProjectSettingsStore.persistIfNonEmpty(
             projectName: formProjectName,
@@ -881,6 +1133,36 @@ struct HazardInspectionView: View {
         }
     }
 
+    private func applyRecentQuickFieldsIfEmpty() {
+        let recent = RecentFieldValuesStore.lastQuickInspectionFields()
+        if formProjectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            formProjectName = recent.projectName
+        }
+        if formInspectorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            formInspectorName = recent.inspectorName
+        }
+        if hazardLocationDetail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            hazardLocationDetail = Self.locationDetail(fromStoredLocation: recent.location)
+        }
+        if formResponsiblePerson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            formResponsiblePerson = recent.responsiblePerson
+        }
+        if formResponsibleUnit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            formResponsibleUnit = recent.responsibleUnit
+        }
+    }
+
+    private static func locationDetail(fromStoredLocation raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        for scene in SafetyInspectionScene.allCases {
+            let prefix = "\(scene.rawValue) - "
+            if trimmed.hasPrefix(prefix) {
+                return String(trimmed.dropFirst(prefix.count))
+            }
+        }
+        return trimmed
+    }
+
     private func presentRectificationIntentSheet() {
         switch rectificationIntent {
         case .immediate:
@@ -896,21 +1178,98 @@ struct HazardInspectionView: View {
         }
     }
 
+    private func toggleHazardTypeTag(_ tag: String) {
+        if selectedHazardTypeTags.contains(tag) {
+            selectedHazardTypeTags.remove(tag)
+        } else {
+            selectedHazardTypeTags.insert(tag)
+        }
+        if let suggestion = currentQuickSuggestion {
+            applyQuickSuggestion(suggestion, force: false)
+        }
+    }
+
+    private func applyQuickSuggestion(_ suggestion: QuickHazardSuggestion, force: Bool) {
+        if force || !userManuallyChangedRisk || selectedRiskLevelForForm.isEmpty {
+            selectedRiskLevelForForm = suggestion.riskLevel
+            userRiskLevelOverride = suggestion.riskLevel
+            if force { userManuallyChangedRisk = false }
+        }
+        if force || !userManuallyChangedIntent {
+            rectificationIntent = suggestion.intent
+            if force { userManuallyChangedIntent = false }
+        }
+    }
+
+    private func resetForNextQuickRecord() {
+        hazardSitePhotos.removeAll()
+        hazardSitePhotoImportedAt.removeAll()
+        selectedPhotoPreview = nil
+        replacingSitePhotoIndex = nil
+        sitePhotoMessage = nil
+        supplementaryText = ""
+        selectedHazardTypeTags.removeAll()
+        selectedRiskLevelForForm = ""
+        userRiskLevelOverride = nil
+        userManuallyChangedRisk = false
+        userManuallyChangedIntent = false
+        rectificationIntent = .immediate
+        rectificationScheduledDue = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+        scheduleAddToCalendar = false
+        immediateRectNote = ""
+        immediateRectPhotoData = nil
+        lastSavedMessage = nil
+        analysisError = nil
+    }
+
     private func stopVoiceBeforePhotoSource() {
 #if os(iOS) || os(visionOS) || os(macOS)
         voiceTranscriber.stopSessionIfNeeded()
 #endif
     }
 
-    private func appendSitePhotoIfAllowed(_ data: Data) {
+    private func appendSitePhotoIfAllowed(_ data: Data, replacing indexToReplace: Int? = nil) {
         guard !data.isEmpty else { return }
+        if let indexToReplace {
+            guard hazardSitePhotos.indices.contains(indexToReplace) else {
+                sitePhotoFailureNotice = true
+                return
+            }
+            let stamped = stampedPhotoDataForHazard(from: data)
+            hazardSitePhotos[indexToReplace] = stamped
+            if hazardSitePhotoImportedAt.indices.contains(indexToReplace) {
+                hazardSitePhotoImportedAt[indexToReplace] = Date()
+            }
+            sitePhotoMessage = "已替换\(indexToReplace == 0 ? "主图" : "副图")"
+            SitePhotoLibrarySaver.saveToPhotoLibraryIfPermitted(stamped, source: "隐患排查现场照片")
+            return
+        }
         guard hazardSitePhotos.count < HazardForm.maxSitePhotos else {
             photoLimitNotice = true
             return
         }
         let stamped = stampedPhotoDataForHazard(from: data)
+        let nextIndex = hazardSitePhotos.count
         hazardSitePhotos.append(stamped)
+        hazardSitePhotoImportedAt.append(Date())
+        sitePhotoMessage = "已添加\(nextIndex == 0 ? "主图" : "副图")"
         SitePhotoLibrarySaver.saveToPhotoLibraryIfPermitted(stamped, source: "隐患排查现场照片")
+    }
+
+    private func deleteSitePhoto(at index: Int) {
+        guard hazardSitePhotos.indices.contains(index) else { return }
+        hazardSitePhotos.remove(at: index)
+        if hazardSitePhotoImportedAt.indices.contains(index) {
+            hazardSitePhotoImportedAt.remove(at: index)
+        }
+        sitePhotoMessage = "已删除现场照片"
+    }
+
+    private func makeSitePhotoPreview(for index: Int) -> SitePhotoPreview? {
+        guard hazardSitePhotos.indices.contains(index),
+              let image = Image.fromStoredData(hazardSitePhotos[index]) else { return nil }
+        let date = hazardSitePhotoImportedAt.indices.contains(index) ? hazardSitePhotoImportedAt[index] : Date()
+        return SitePhotoPreview(index: index, label: index == 0 ? "主图" : "副图", importedAt: date, image: image)
     }
 
     private func stampedPhotoDataForHazard(from data: Data) -> Data {
@@ -1041,7 +1400,7 @@ struct HazardInspectionView: View {
         defer { isAnalyzing = false }
 
         let hasPhoto = hazardSitePhotos.contains { !$0.isEmpty }
-        let analysis = HazardAnalysisResult.offlineManualRecord(
+        let analysis = makeQuickAnalysisResult(
             supplementaryText: supplementaryText,
             location: trimmedHazardLocation(),
             hasPhoto: hasPhoto
@@ -1058,10 +1417,30 @@ struct HazardInspectionView: View {
             if payload.rectificationIntent == .scheduled, payload.addDeadlineToDeviceCalendar {
                 addDeadlineReminder(for: payload)
             }
-            path.append(.inspectionRecordFlatList)
+            lastSavedMessage = "已保存到排查记录，可继续补充报告字段"
+            showSavedActions = true
         } catch {
             analysisError = "无法保存记录，请检查存储空间或稍后重试。"
         }
+    }
+
+    private func makeQuickAnalysisResult(
+        supplementaryText: String,
+        location: String,
+        hasPhoto: Bool
+    ) -> HazardAnalysisResult {
+        var analysis = HazardAnalysisResult.offlineManualRecord(
+            supplementaryText: supplementaryText,
+            location: location,
+            hasPhoto: hasPhoto
+        )
+        guard let suggestion = currentQuickSuggestion else { return analysis }
+        analysis.riskLevel = suggestion.riskLevel
+        analysis.accidentCategoryMajor = suggestion.accidentMajor
+        analysis.accidentCategoryMinor = suggestion.accidentMinor
+        analysis.rectificationMeasures = suggestion.rectificationRequirement
+        analysis.legalBasis = "当前为本地快记建议：请在详情页点击「智能优化」后复核正式依据。"
+        return analysis
     }
 
     private func makeResultPayload(analysis: HazardAnalysisResult) -> HazardResultPayload {
@@ -1078,8 +1457,11 @@ struct HazardInspectionView: View {
             addDeadlineToDeviceCalendar: rectificationIntent == .scheduled && scheduleAddToCalendar,
             userRiskLevelOverride: resolvedUserRiskLevelOverride,
             sceneType: selectedSceneType,
+            hazardTypeTags: selectedHazardTypeTagsOrdered,
             reportProjectName: trimmedFormProjectName(),
-            reportInspectorName: trimmedFormInspectorName()
+            reportInspectorName: trimmedFormInspectorName(),
+            rectificationResponsiblePerson: formResponsiblePerson,
+            rectificationResponsibleUnit: formResponsibleUnit
         )
     }
 
@@ -1107,6 +1489,172 @@ struct HazardInspectionView: View {
 }
 
 // MARK: - 整改安排 Sheet（隐患识别）
+
+private struct QuickHazardSuggestion {
+    var riskLevel: String
+    var accidentMajor: String
+    var accidentMinor: String
+    var rectificationRequirement: String
+    var intent: HazardRectificationIntent
+
+    static func suggest(text: String, tags: [String]) -> QuickHazardSuggestion? {
+        let source = (text + " " + tags.joined(separator: " "))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !source.isEmpty else { return nil }
+
+        let rules: [(keywords: [String], suggestion: QuickHazardSuggestion)] = [
+            (
+                ["临边", "防护栏", "栏杆", "洞口", "高处", "坠落", "基坑"],
+                QuickHazardSuggestion(
+                    riskLevel: "较大风险",
+                    accidentMajor: "高处与建筑施工类",
+                    accidentMinor: "高处坠落",
+                    rectificationRequirement: "立即设置临边防护栏杆、挡脚板和警示标识，整改完成后拍照复查。",
+                    intent: .scheduled
+                )
+            ),
+            (
+                ["临时用电", "配电箱", "电缆", "电线", "漏电", "触电", "私拉乱接"],
+                QuickHazardSuggestion(
+                    riskLevel: "较大风险",
+                    accidentMajor: "用电与火灾类",
+                    accidentMinor: "触电",
+                    rectificationRequirement: "立即停用不符合要求的用电设施，规范配电箱、漏保和线路敷设，经电工检查合格后恢复使用。",
+                    intent: .immediate
+                )
+            ),
+            (
+                ["消防", "灭火器", "易燃", "火灾", "动火"],
+                QuickHazardSuggestion(
+                    riskLevel: "较大风险",
+                    accidentMajor: "消防与动火类",
+                    accidentMinor: "火灾",
+                    rectificationRequirement: "清理可燃物，补齐灭火器材和警示标识，动火作业按审批和监护要求落实后复查。",
+                    intent: .immediate
+                )
+            ),
+            (
+                ["机械", "防护罩", "卷入", "设备", "传动", "吊装", "起重"],
+                QuickHazardSuggestion(
+                    riskLevel: "较大风险",
+                    accidentMajor: "机械设备类",
+                    accidentMinor: "机械伤害",
+                    rectificationRequirement: "停机整改设备防护装置，设置警戒和操作规程，验收合格后方可继续作业。",
+                    intent: .scheduled
+                )
+            ),
+            (
+                ["脚手架", "脚手板", "连墙件", "架体"],
+                QuickHazardSuggestion(
+                    riskLevel: "较大风险",
+                    accidentMajor: "高处与建筑施工类",
+                    accidentMinor: "坍塌/高处坠落",
+                    rectificationRequirement: "按方案补齐脚手架构配件和防护措施，组织验收合格后再投入使用。",
+                    intent: .scheduled
+                )
+            ),
+            (
+                ["安全帽", "安全带", "个人防护", "未佩戴"],
+                QuickHazardSuggestion(
+                    riskLevel: "一般风险",
+                    accidentMajor: "个人防护类",
+                    accidentMinor: "物体打击/高处坠落",
+                    rectificationRequirement: "立即纠正个人防护用品佩戴问题，现场教育提醒并复查同类作业人员。",
+                    intent: .immediate
+                )
+            )
+        ]
+
+        for rule in rules where rule.keywords.contains(where: { source.contains($0) }) {
+            return rule.suggestion
+        }
+
+        if !tags.isEmpty {
+            return QuickHazardSuggestion(
+                riskLevel: "一般风险",
+                accidentMajor: "建筑施工安全类",
+                accidentMinor: tags.first ?? "一般隐患",
+                rectificationRequirement: "按所选隐患类型落实整改措施，整改完成后拍照留存并复查确认。",
+                intent: .scheduled
+            )
+        }
+
+        return nil
+    }
+}
+
+private struct SitePhotoPreview: Identifiable {
+    let id = UUID()
+    var index: Int
+    var label: String
+    var importedAt: Date
+    var image: Image
+}
+
+private struct SitePhotoPreviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let preview: SitePhotoPreview
+    let onDelete: () -> Void
+    let onReplace: () -> Void
+
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f
+    }()
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                preview.image
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(preview.label, systemImage: "photo")
+                        .font(.headline.weight(.semibold))
+                    Text("导入时间：\(Self.formatter.string(from: preview.importedAt))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 12) {
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Label("删除", systemImage: "trash")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        onReplace()
+                    } label: {
+                        Label("替换", systemImage: "arrow.triangle.2.circlepath")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .padding(16)
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("照片预览")
+            .inlineNavigationTitleMode()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
 
 private struct HazardImmediateRectificationSheet: View {
     @Binding var note: String
@@ -1146,13 +1694,22 @@ private struct HazardImmediateRectificationSheet: View {
                             .buttonStyle(.bordered)
 
                             if let img = Image.fromStoredData(photoData) {
-                                img
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 200)
-                                    .background(Color.black.opacity(0.06))
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                ZStack(alignment: .bottomLeading) {
+                                    img
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 200)
+                                        .background(Color.black.opacity(0.06))
+                                    Text("整改后")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(Color.black.opacity(0.35), in: Capsule())
+                                        .padding(10)
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                             }
 
                             Text("可与上方「隐患照片」不同，用于记录已采取的现场措施。")

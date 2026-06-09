@@ -10,6 +10,7 @@ enum RecentFieldKind {
     case inspectorName
     case location
     case rectificationResponsible
+    case rectificationResponsibleUnit
 
     var storageKey: String {
         switch self {
@@ -21,8 +22,18 @@ enum RecentFieldKind {
             return "safemasterRecentLocations"
         case .rectificationResponsible:
             return "safemasterRecentRectificationResponsible"
+        case .rectificationResponsibleUnit:
+            return "safemasterRecentRectificationResponsibleUnits"
         }
     }
+}
+
+struct RecentQuickInspectionFields {
+    var projectName: String
+    var inspectorName: String
+    var location: String
+    var responsiblePerson: String
+    var responsibleUnit: String
 }
 
 enum RecentFieldValuesStore {
@@ -46,5 +57,28 @@ enum RecentFieldValuesStore {
     static func recordReportCover(projectName: String, inspectorName: String) {
         record(projectName, for: .projectName)
         record(inspectorName, for: .inspectorName)
+    }
+
+    static func lastQuickInspectionFields() -> RecentQuickInspectionFields {
+        RecentQuickInspectionFields(
+            projectName: recent(for: .projectName).first ?? "",
+            inspectorName: recent(for: .inspectorName).first ?? "",
+            location: recent(for: .location).first ?? "",
+            responsiblePerson: recent(for: .rectificationResponsible).first ?? "",
+            responsibleUnit: recent(for: .rectificationResponsibleUnit).first ?? ""
+        )
+    }
+
+    static func recordQuickInspectionFields(
+        projectName: String,
+        inspectorName: String,
+        location: String,
+        responsiblePerson: String,
+        responsibleUnit: String
+    ) {
+        recordReportCover(projectName: projectName, inspectorName: inspectorName)
+        record(location, for: .location)
+        record(responsiblePerson, for: .rectificationResponsible)
+        record(responsibleUnit, for: .rectificationResponsibleUnit)
     }
 }

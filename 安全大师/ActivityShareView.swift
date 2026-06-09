@@ -4,6 +4,7 @@
 //
 
 #if os(iOS)
+import CoreData
 import QuickLook
 import SwiftUI
 import UIKit
@@ -32,6 +33,14 @@ struct GeneratedReportPreviewSheet: View {
     @State private var showShareSheet = false
     @State private var showFullScreenPreview = false
     @State private var errorMessage: String?
+    @State private var exportCheckResult: ReportExportGuardResult?
+    @State private var showBlockingExportAlert = false
+    @State private var showSuggestedExportAlert = false
+    @State private var supplementFindingObjectID: NSManagedObjectID?
+    @State private var showSupplementDetail = false
+    @State private var archiveMessage: String?
+    @State private var showArchiveAlert = false
+    @State private var showAIReportReview = false
 
     private var sortedFindings: [InspectionFinding] {
         DaySummaryBuilder.sortedForReport(findings)
@@ -70,7 +79,7 @@ struct GeneratedReportPreviewSheet: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showShareSheet = true
+                        requestShare()
                     } label: {
                         Label("分享", systemImage: "square.and.arrow.up")
                     }
@@ -83,6 +92,43 @@ struct GeneratedReportPreviewSheet: View {
         }
         .sheet(isPresented: $showShareSheet) {
             ActivityShareView(items: shareItems)
+        }
+        .sheet(isPresented: $showSupplementDetail) {
+            if let supplementFindingObjectID {
+                NavigationStack {
+                    RecordDetailView(findingObjectID: supplementFindingObjectID)
+                }
+            }
+        }
+        .sheet(isPresented: $showAIReportReview) {
+            AIReportReviewView(
+                findings: sortedFindings,
+                kind: kind,
+                exportCheckResult: exportCheckResult ?? ReportExportGuard.validate(findings: sortedFindings, kind: kind)
+            )
+        }
+        .alert("报告存在必填项缺失，补充后才能导出。", isPresented: $showBlockingExportAlert) {
+            Button("去补充", role: .cancel) {
+                openFirstSupplementTarget()
+            }
+        } message: {
+            Text(exportIssueMessage(level: .required))
+        }
+        .alert(suggestedExportTitle, isPresented: $showSuggestedExportAlert) {
+            Button("去补充", role: .cancel) {
+                openFirstSupplementTarget()
+            }
+            Button("继续导出") {
+                ReportExportEventStore.recordGenerated(findings: sortedFindings)
+                showShareSheet = true
+            }
+        } message: {
+            Text(exportIssueMessage(level: .suggested))
+        }
+        .alert("报告存档", isPresented: $showArchiveAlert) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(archiveMessage ?? "")
         }
         .fullScreenCover(isPresented: $showFullScreenPreview) {
             if let previewURL {
@@ -137,17 +183,42 @@ struct GeneratedReportPreviewSheet: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
             }
+            reportActionBar
+        }
+    }
+
+    @ViewBuilder
+    private var reportActionBar: some View {
+        VStack(spacing: 10) {
             Button {
-                showShareSheet = true
+                showAIReportReview = true
+            } label: {
+                Label("AI 审查报告", systemImage: "sparkles")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(sortedFindings.isEmpty)
+
+            Button {
+                archiveCurrentReport()
+            } label: {
+                Label("存档报告", systemImage: "archivebox")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(previewURL == nil)
+
+            Button {
+                requestShare()
             } label: {
                 Label("分享报告", systemImage: "square.and.arrow.up")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .disabled(shareItems.isEmpty)
-            .padding()
-            .background(.ultraThinMaterial)
         }
+        .padding()
+        .background(.ultraThinMaterial)
     }
 
     private var summarySection: some View {
@@ -167,6 +238,8 @@ struct GeneratedReportPreviewSheet: View {
                 previewRow("记录数量", "\(count) 条隐患", systemImage: "list.bullet.rectangle")
                 previewRow("文件", fileLabel, systemImage: "doc")
             }
+
+            exportCheckSection
 
             ForEach(Array(sortedFindings.enumerated()), id: \.element.objectID) { index, finding in
                 exportFindingPreviewCard(finding: finding, index: index + 1)
@@ -291,15 +364,11 @@ struct GeneratedReportPreviewSheet: View {
         errorMessage = nil
         shareItems = []
         previewURL = nil
+        exportCheckResult = nil
 
         let list = sortedFindings
         guard !list.isEmpty else {
             errorMessage = "请先选择至少一条记录。"
-            isLoading = false
-            return
-        }
-        if let guardError = exportGuardError(for: list) {
-            errorMessage = guardError
             isLoading = false
             return
         }
@@ -319,7 +388,137 @@ struct GeneratedReportPreviewSheet: View {
         shareItems = items
         previewURL = ShareableInspectionReportExporter.primaryPreviewURL(findings: list, kind: kind)
             ?? items.compactMap { $0 as? URL }.first
+        exportCheckResult = ReportExportGuard.validate(findings: list, kind: kind)
         isLoading = false
+    }
+
+    @ViewBuilder
+    private var exportCheckSection: some View {
+        let result = exportCheckResult ?? ReportExportGuard.validate(findings: sortedFindings, kind: kind)
+        previewCard(title: "导出前检查", systemImage: result.hasBlockingIssues ? "exclamationmark.triangle.fill" : "checkmark.seal") {
+            if result.issues.isEmpty {
+                Label("关键字段已满足导出要求", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.green)
+            } else {
+                exportIssueGroup("必须补充：影响正式报告生成", issues: result.requiredIssues)
+                exportIssueGroup("建议补充：不影响生成，但建议完善", issues: result.suggestedIssues)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func exportIssueGroup(_ title: String, issues: [ReportExportIssue]) -> some View {
+        if !issues.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(title.hasPrefix("必须") ? .red : .orange)
+                ForEach(issues.prefix(6)) { issue in
+                    Button {
+                        openSupplementTarget(for: issue)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(issue.title)
+                                    .font(.caption)
+                                if issue.findingObjectID != nil {
+                                    Image(systemName: "arrow.right.circle")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            if let recordLabel = issue.recordLabel {
+                                Text(recordLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(issue.findingObjectID == nil)
+                }
+                if issues.count > 6 {
+                    Text("另有 \(issues.count - 6) 项")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var suggestedExportTitle: String {
+        let count = exportCheckResult?.suggestedCount ?? 0
+        return "报告还有 \(count) 项建议补充"
+    }
+
+    private func requestShare() {
+        let result = ReportExportGuard.validate(findings: sortedFindings, kind: kind)
+        exportCheckResult = result
+        if result.hasBlockingIssues {
+            showBlockingExportAlert = true
+        } else if !result.suggestedIssues.isEmpty {
+            showSuggestedExportAlert = true
+        } else {
+            ReportExportEventStore.recordGenerated(findings: sortedFindings)
+            showShareSheet = true
+        }
+    }
+
+    private func archiveCurrentReport() {
+        guard let previewURL else {
+            archiveMessage = "当前没有可存档的报告文件。"
+            showArchiveAlert = true
+            return
+        }
+        do {
+            let report = try ReportArchiveStore.archive(
+                sourceURL: previewURL,
+                kindTitle: kind.coverTitle,
+                projectName: ReportProjectSettingsStore.coverProjectName(for: sortedFindings),
+                recordCount: sortedFindings.count
+            )
+            ReportExportEventStore.recordGenerated(findings: sortedFindings)
+            archiveMessage = "已存档：\(report.fileName)"
+        } catch {
+            archiveMessage = "存档失败，请稍后重试。"
+        }
+        showArchiveAlert = true
+    }
+
+    private func openFirstSupplementTarget() {
+        let first = exportCheckResult?.requiredIssues.first(where: { $0.findingObjectID != nil })
+            ?? exportCheckResult?.suggestedIssues.first(where: { $0.findingObjectID != nil })
+        guard let first else {
+            dismiss()
+            return
+        }
+        openSupplementTarget(for: first)
+    }
+
+    private func openSupplementTarget(for issue: ReportExportIssue) {
+        guard let objectID = issue.findingObjectID else { return }
+        supplementFindingObjectID = objectID
+        showSupplementDetail = true
+    }
+
+    private func exportIssueMessage(level: ReportExportIssueLevel) -> String {
+        let issues: [ReportExportIssue]
+        switch level {
+        case .required:
+            issues = exportCheckResult?.requiredIssues ?? []
+        case .suggested:
+            issues = exportCheckResult?.suggestedIssues ?? []
+        }
+        let shown = issues.prefix(8).map { issue in
+            if let label = issue.recordLabel {
+                return "\(issue.title)\n\(label)"
+            }
+            return issue.title
+        }.joined(separator: "\n")
+        let more = issues.count > 8 ? "\n另有 \(issues.count - 8) 项" : ""
+        return shown + more
     }
 
     private func exportGuardError(for list: [InspectionFinding]) -> String? {
@@ -402,7 +601,7 @@ struct GeneratedReportPreviewSheet: View {
 
 // MARK: - Quick Look
 
-private struct QuickLookPreview: UIViewControllerRepresentable {
+struct QuickLookPreview: UIViewControllerRepresentable {
     let url: URL
 
     func makeUIViewController(context: Context) -> QLPreviewController {

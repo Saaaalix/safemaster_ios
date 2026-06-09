@@ -342,6 +342,7 @@ struct ImportedNoticeRuleBasedParser: ImportedNoticeAIParsing {
         hazards: [ImportedNoticeHazardDraft]
     ) -> String {
         let candidates = [
+            draft.summary,
             draft.projectName,
             draft.noticeNo,
             hazards.first?.description.value,

@@ -303,11 +303,17 @@ private struct InspectionRecordSectionView: View {
     @State private var discoveredAtDraft = Date()
     @State private var editSaveHint: String?
     @State private var deepSeekConfigured = false
-    @State private var optimizeIssueEnabled = false
-    @State private var optimizeRequirementEnabled = false
-    @State private var optimizeLegalBasisEnabled = false
+    @State private var optimizeIssueEnabled = true
+    @State private var optimizeRequirementEnabled = true
+    @State private var optimizeLegalBasisEnabled = true
     @State private var optimizeInteractionHint: String?
     @State private var showOptimizationTargetAlert = false
+    @State private var issueWasOptimized = false
+    @State private var requirementWasOptimized = false
+    @State private var legalBasisWasOptimized = false
+    @State private var issueBeforeOptimization: String?
+    @State private var requirementBeforeOptimization: String?
+    @State private var legalBasisBeforeOptimization: String?
     @State private var isDetailConfirmed = false
     @State private var issueFieldOpacity: Double = 1
     @State private var requirementFieldOpacity: Double = 1
@@ -402,10 +408,89 @@ private struct InspectionRecordSectionView: View {
                     reportAnalysisActionArea
                 }
                 detailCard(title: "整改与验收", systemImage: "checkmark.seal") {
+                    rectificationClosureTimeline
+                    Divider().opacity(0.35)
                     rectificationEntryCard
                 }
             }
         }
+    }
+
+    private var rectificationClosureTimeline: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("整改闭环时间线", systemImage: "timeline.selection")
+                .font(.subheadline.weight(.semibold))
+            ForEach(rectificationTimelineNodes) { node in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: node.isDone ? "checkmark.circle.fill" : "circle")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(node.isDone ? node.tint : Color(.tertiaryLabel))
+                        .padding(.top, 1)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(node.title)
+                                .font(.caption.weight(.semibold))
+                            Spacer(minLength: 8)
+                            Text(node.timeText)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(node.detail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var rectificationTimelineNodes: [RectificationTimelineNode] {
+        let latest = finding.latestRectificationRound
+        let foundAt = finding.discoveredAt ?? finding.createdAt
+        let generatedNoticeAt = ReportExportEventStore.generatedAt(for: finding)
+        let noticeDone = generatedNoticeAt != nil || finding.isExternalSource || finding.hasConfirmedDetailFields
+        let noticeTime = generatedNoticeAt ?? finding.externalNoticeDate ?? finding.createdAt
+        let rectifiedDone = latest.map { round in
+            normalizedOptional(round.actionTaken) != nil || round.evidencePhotoData != nil
+        } ?? false
+        let rectifiedTime = latest?.createdAt
+        let passedDone = latest?.statusEnum == .passed
+        let passedTime = latest?.verifiedAt
+        return [
+            RectificationTimelineNode(
+                title: "发现隐患",
+                isDone: true,
+                time: foundAt,
+                detail: finding.reportLocationPart
+            ),
+            RectificationTimelineNode(
+                title: "生成通知",
+                isDone: noticeDone,
+                time: noticeDone ? noticeTime : nil,
+                detail: generatedNoticeAt != nil ? "已导出或分享正式通知资料" : (noticeDone ? "已形成可导出的通知资料" : "导出通知单后会进入此节点")
+            ),
+            RectificationTimelineNode(
+                title: "完成整改",
+                isDone: rectifiedDone,
+                time: rectifiedDone ? rectifiedTime : nil,
+                detail: rectifiedDone ? "已填写整改情况或上传整改后照片" : "待填写实际整改说明或上传整改后照片"
+            ),
+            RectificationTimelineNode(
+                title: "复查通过",
+                isDone: passedDone,
+                time: passedTime,
+                detail: passedDone ? (latest?.verifierNote ?? "复查通过") : "待提交验收并复查"
+            ),
+            RectificationTimelineNode(
+                title: "闭环归档",
+                isDone: finding.isRectificationClosed,
+                time: finding.isRectificationClosed ? passedTime : nil,
+                detail: finding.isRectificationClosed ? "已闭环，可用于整改回复资料" : "复查通过后自动进入闭环归档"
+            )
+        ]
     }
 
     private var readonlyReferenceDisclosure: some View {
@@ -461,11 +546,10 @@ private struct InspectionRecordSectionView: View {
                             Text(latest.plannedDueAt.map(Self.dayFormatter.string(from:)) ?? "待确认")
                                 .font(.caption)
                         }
-                        if let deadlineHint = rectificationDeadlineHint(for: latest) {
-                            Text(deadlineHint.text)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(deadlineHint.tint)
-                        }
+                        let dueStatus = RectificationDueStatus.status(for: finding)
+                        Text(dueStatus.text)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(dueStatus.tint)
                     }
                 }
                 .padding(12)
@@ -621,6 +705,7 @@ private struct InspectionRecordSectionView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color(.secondaryLabel))
             sourceMetaLine
+            hazardTypeTagsView
 
             HStack(alignment: .top, spacing: 10) {
                 editableMetaField(
@@ -664,6 +749,7 @@ private struct InspectionRecordSectionView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color(.secondaryLabel))
             sourceMetaLine
+            hazardTypeTagsView
 
             HStack(alignment: .top, spacing: 10) {
                 labeledTile("项目名称", projectNameDraft)
@@ -719,6 +805,29 @@ private struct InspectionRecordSectionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var hazardTypeTagsView: some View {
+        let tags = parsedHazardTypeTags
+        if !tags.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("隐患类型")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(.secondaryLabel))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(tags, id: \.self) { tag in
+                            Text(tag)
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Self.productivityAccent.opacity(0.14), in: Capsule())
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private var riskLevelEditor: some View {
@@ -804,18 +913,24 @@ private struct InspectionRecordSectionView: View {
                 if thisAnalyzing {
                     HStack {
                         Spacer()
-                        ProgressView("优化中...")
+                        ProgressView("正在生成正式报告语言...")
                             .tint(.white)
                         Spacer()
                     }
                 } else {
-                    Label("按所选项智能优化", systemImage: "wand.and.stars")
+                    Label(optimizationButtonTitle, systemImage: "wand.and.stars")
                         .frame(maxWidth: .infinity)
                 }
             }
             .buttonStyle(.borderedProminent)
             .tint(Self.productivityAccent)
-            .disabled(!hasMinimumInputForOptimization || anyAnalyzing)
+            .disabled(!hasMinimumInputForOptimization || !hasAnyOptimizationTarget || anyAnalyzing)
+
+            if !hasAnyOptimizationTarget {
+                Label("请选择要优化的字段", systemImage: "checkmark.square")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             HStack(spacing: 10) {
                 Button {
@@ -853,6 +968,16 @@ private struct InspectionRecordSectionView: View {
 
     private var hasAnyOptimizationTarget: Bool {
         optimizeIssueEnabled || optimizeRequirementEnabled || optimizeLegalBasisEnabled
+    }
+
+    private var selectedOptimizationTargetCount: Int {
+        [optimizeIssueEnabled, optimizeRequirementEnabled, optimizeLegalBasisEnabled].filter { $0 }.count
+    }
+
+    private var optimizationButtonTitle: String {
+        let count = selectedOptimizationTargetCount
+        guard count > 0 else { return "请选择优化项" }
+        return "智能优化 \(count) 项"
     }
 
     private var isDetailReadyForConfirmation: Bool {
@@ -942,7 +1067,8 @@ private struct InspectionRecordSectionView: View {
                 title: "存在问题",
                 placeholder: "正式报告中的存在问题",
                 text: $issueDraft,
-                optimizeToggle: $optimizeIssueEnabled
+                wasOptimized: issueWasOptimized,
+                onRestore: issueBeforeOptimization == nil ? nil : restoreIssueOriginal
             )
             .opacity(issueFieldOpacity)
             .animation(.linear(duration: 0.08), value: issueFieldOpacity)
@@ -950,7 +1076,8 @@ private struct InspectionRecordSectionView: View {
                 title: "整改要求",
                 placeholder: "正式报告中的整改要求",
                 text: $requirementDraft,
-                optimizeToggle: $optimizeRequirementEnabled
+                wasOptimized: requirementWasOptimized,
+                onRestore: requirementBeforeOptimization == nil ? nil : restoreRequirementOriginal
             )
             .opacity(requirementFieldOpacity)
             .animation(.linear(duration: 0.08), value: requirementFieldOpacity)
@@ -958,10 +1085,15 @@ private struct InspectionRecordSectionView: View {
                 title: "整改依据",
                 placeholder: "正式报告中的整改依据",
                 text: $legalBasisDraft,
-                optimizeToggle: $optimizeLegalBasisEnabled
+                wasOptimized: legalBasisWasOptimized,
+                onRestore: legalBasisBeforeOptimization == nil ? nil : restoreLegalBasisOriginal
             )
             .opacity(legalBasisFieldOpacity)
             .animation(.linear(duration: 0.08), value: legalBasisFieldOpacity)
+            Label("当前为演示依据，正式使用请复核。", systemImage: "exclamationmark.triangle")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
         .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -987,6 +1119,7 @@ private struct InspectionRecordSectionView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            optimizationTargetPicker
             formalReportFieldsEditor
             optimizeActionButton
         }
@@ -1014,11 +1147,45 @@ private struct InspectionRecordSectionView: View {
         .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
+    private var optimizationTargetPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("选择需要智能优化的字段")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(.secondaryLabel))
+            HStack(spacing: 8) {
+                optimizationTargetButton("存在问题", isOn: $optimizeIssueEnabled)
+                optimizationTargetButton("整改要求", isOn: $optimizeRequirementEnabled)
+                optimizationTargetButton("整改依据", isOn: $optimizeLegalBasisEnabled)
+            }
+        }
+        .padding(10)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func optimizationTargetButton(_ title: String, isOn: Binding<Bool>) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+            optimizeInteractionHint = isOn.wrappedValue
+                ? "已选择「\(title)」智能优化。"
+                : "已取消「\(title)」智能优化。"
+        } label: {
+            Label(title, systemImage: isOn.wrappedValue ? "checkmark.square.fill" : "square")
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(isOn.wrappedValue ? Self.productivityAccent : .secondary)
+    }
+
     private func editableMultilineField(
         title: String,
         placeholder: String,
         text: Binding<String>,
-        optimizeToggle: Binding<Bool>? = nil
+        optimizeToggle: Binding<Bool>? = nil,
+        wasOptimized: Bool = false,
+        onRestore: (() -> Void)? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
@@ -1030,8 +1197,13 @@ private struct InspectionRecordSectionView: View {
                     optimizationCornerToggle(title: title, isOn: optimizeToggle)
                 }
             }
+            formalFieldStatusRow(wasOptimized: wasOptimized, onRestore: onRestore)
             TextField(placeholder, text: text, axis: .vertical)
                 .lineLimit(3...8)
+#if os(iOS)
+                .textInputAutocapitalization(.never)
+#endif
+                .autocorrectionDisabled(true)
                 .padding(10)
                 .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
@@ -1041,7 +1213,9 @@ private struct InspectionRecordSectionView: View {
         title: String,
         placeholder: String,
         text: Binding<String>,
-        optimizeToggle: Binding<Bool>? = nil
+        optimizeToggle: Binding<Bool>? = nil,
+        wasOptimized: Bool = false,
+        onRestore: (() -> Void)? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
@@ -1053,6 +1227,7 @@ private struct InspectionRecordSectionView: View {
                     optimizationCornerToggle(title: title, isOn: optimizeToggle)
                 }
             }
+            formalFieldStatusRow(wasOptimized: wasOptimized, onRestore: onRestore)
 
             ZStack(alignment: .topLeading) {
                 if text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1066,6 +1241,7 @@ private struct InspectionRecordSectionView: View {
 #if os(iOS)
                     .textInputAutocapitalization(.never)
 #endif
+                    .autocorrectionDisabled(true)
                     .frame(minHeight: 180)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -1073,6 +1249,25 @@ private struct InspectionRecordSectionView: View {
                     .background(Color.clear)
             }
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    private func formalFieldStatusRow(wasOptimized: Bool, onRestore: (() -> Void)?) -> some View {
+        HStack(spacing: 8) {
+            Label(wasOptimized ? "已优化" : "待优化", systemImage: wasOptimized ? "checkmark.circle.fill" : "pencil")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(wasOptimized ? .green : .secondary)
+            Text("可编辑")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            if let onRestore {
+                Button("恢复原文", action: onRestore)
+                    .font(.caption2.weight(.semibold))
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .disabled(anyAnalyzing)
+            }
         }
     }
 
@@ -1107,6 +1302,7 @@ private struct InspectionRecordSectionView: View {
 #if os(iOS)
                 .textInputAutocapitalization(.never)
 #endif
+                .autocorrectionDisabled(true)
                 .focused(editorFocus, equals: focus)
                 .padding(10)
                 .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -1254,8 +1450,34 @@ private struct InspectionRecordSectionView: View {
         if !issue.isEmpty, !issue.contains(HazardOfflineMarkers.recordPrefix) {
             return issue
         }
-        let supplementary = supplementaryText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let supplementary = Self.removingHazardTypeLine(from: supplementaryText ?? "")
         return supplementary
+    }
+
+    private var parsedHazardTypeTags: [String] {
+        Self.hazardTypeTags(from: supplementaryDraft)
+    }
+
+    private static func hazardTypeTags(from text: String) -> [String] {
+        guard let line = text
+            .split(whereSeparator: \.isNewline)
+            .map({ String($0).trimmingCharacters(in: .whitespacesAndNewlines) })
+            .first(where: { $0.hasPrefix("隐患类型：") })
+        else { return [] }
+        return line
+            .replacingOccurrences(of: "隐患类型：", with: "")
+            .split(separator: "、")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private static func removingHazardTypeLine(from text: String) -> String {
+        text
+            .split(whereSeparator: \.isNewline)
+            .map { String($0) }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("隐患类型：") }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func normalizedRequirementDraft(_ raw: String?) -> String {
@@ -1304,6 +1526,15 @@ private struct InspectionRecordSectionView: View {
         let previousIssue = finding.hazardDescription
         let previousRequirement = finding.rectificationMeasures
         let previousLegalBasis = finding.legalBasis
+        if optimizeIssueEnabled {
+            issueBeforeOptimization = issueDraft
+        }
+        if optimizeRequirementEnabled {
+            requirementBeforeOptimization = requirementDraft
+        }
+        if optimizeLegalBasisEnabled {
+            legalBasisBeforeOptimization = legalBasisDraft
+        }
         reanalyzingObjectID = objectID
         defer { reanalyzingObjectID = nil }
         do {
@@ -1324,11 +1555,45 @@ private struct InspectionRecordSectionView: View {
             }
             try viewContext.save()
             syncDraftsFromFinding()
+            if optimizeIssueEnabled {
+                issueWasOptimized = true
+            }
+            if optimizeRequirementEnabled {
+                requirementWasOptimized = true
+            }
+            if optimizeLegalBasisEnabled {
+                legalBasisWasOptimized = true
+            }
+            optimizeInteractionHint = "已生成正式报告语言，可继续编辑或恢复原文。"
             playOptimizedFieldsReveal()
         } catch {
             viewContext.rollback()
             onReanalyzeError(error.localizedDescription)
         }
+    }
+
+    private func restoreIssueOriginal() {
+        guard let original = issueBeforeOptimization else { return }
+        issueDraft = original
+        issueWasOptimized = false
+        saveEdits(silent: true)
+        optimizeInteractionHint = "已恢复「存在问题」原文。"
+    }
+
+    private func restoreRequirementOriginal() {
+        guard let original = requirementBeforeOptimization else { return }
+        requirementDraft = original
+        requirementWasOptimized = false
+        saveEdits(silent: true)
+        optimizeInteractionHint = "已恢复「整改要求」原文。"
+    }
+
+    private func restoreLegalBasisOriginal() {
+        guard let original = legalBasisBeforeOptimization else { return }
+        legalBasisDraft = original
+        legalBasisWasOptimized = false
+        saveEdits(silent: true)
+        optimizeInteractionHint = "已恢复「整改依据」原文。"
     }
 
     private func playOptimizedFieldsReveal() {
@@ -1420,6 +1685,31 @@ private struct InspectionRecordSectionView: View {
         if maj.isEmpty { return "细类：\(mino)" }
         return "大类：\(maj)\n细类：\(mino)"
     }
+}
+
+private struct RectificationTimelineNode: Identifiable {
+    let id = UUID()
+    var title: String
+    var isDone: Bool
+    var time: Date?
+    var detail: String
+
+    var tint: Color {
+        isDone ? .green : .secondary
+    }
+
+    var timeText: String {
+        guard let time else { return "待完成" }
+        return Self.formatter.string(from: time)
+    }
+
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f
+    }()
 }
 
 private struct HazardDetailPreviewSheet: View {

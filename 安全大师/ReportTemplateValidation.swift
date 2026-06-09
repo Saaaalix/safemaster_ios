@@ -12,9 +12,18 @@ enum ReportTemplateValidationSeverity: String, CaseIterable, Codable, Hashable {
     var title: String {
         switch self {
         case .error:
-            return "严重缺失"
+            return "必须补充"
         case .warning:
             return "建议补充"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .error:
+            return "影响正式报告生成"
+        case .warning:
+            return "不影响生成，但建议完善"
         }
     }
 }
@@ -68,7 +77,7 @@ enum ReportTemplateValidator {
             appendMissingEditableFieldIssue(value: editableFields.inspectionUnit, fieldName: "检查单位", moduleTitle: infoModule, severity: .error, issues: &issues)
             appendMissingEditableFieldIssue(value: editableFields.inspectedUnit, fieldName: "受检单位", moduleTitle: infoModule, severity: .error, issues: &issues)
             appendMissingEditableFieldIssue(value: editableFields.inspectionDate, fieldName: "检查时间", moduleTitle: infoModule, severity: .error, issues: &issues)
-            appendMissingEditableFieldIssue(value: editableFields.rectificationDeadline, fieldName: "整改期限", moduleTitle: infoModule, severity: .warning, issues: &issues)
+            appendMissingEditableFieldIssue(value: editableFields.rectificationDeadline, fieldName: "整改期限", moduleTitle: infoModule, severity: .error, issues: &issues)
             appendMissingEditableFieldIssue(value: editableFields.inspector, fieldName: "检查人", moduleTitle: infoModule, severity: .warning, issues: &issues)
             appendMissingEditableFieldIssue(value: editableFields.receiver, fieldName: "接收人", moduleTitle: infoModule, severity: .warning, issues: &issues)
         }
@@ -81,8 +90,8 @@ enum ReportTemplateValidator {
         }
         for item in previewData.rectificationItems {
             appendMissingRecordIssue(value: item.issueDescription, recordIndex: item.index, fieldName: "隐患描述", moduleTitle: listModule, severity: .error, issues: &issues)
-            appendMissingRecordIssue(value: item.deadline, recordIndex: item.index, fieldName: "整改期限", moduleTitle: listModule, severity: .warning, issues: &issues)
-            appendMissingRecordIssue(value: item.responsibleParty, recordIndex: item.index, fieldName: "责任人或接收人", moduleTitle: listModule, severity: .warning, issues: &issues)
+            appendMissingRecordIssue(value: item.deadline, recordIndex: item.index, fieldName: "整改期限", moduleTitle: listModule, severity: .error, issues: &issues)
+            appendMissingRecordIssue(value: item.responsibleParty, recordIndex: item.index, fieldName: "责任人", moduleTitle: listModule, severity: .error, issues: &issues)
         }
     }
 

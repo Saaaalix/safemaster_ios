@@ -3,6 +3,7 @@
 //  安全大师
 //
 
+import CoreData
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -21,12 +22,15 @@ struct ImportedNoticeInboxView: View {
     @State private var parsingDraftIDs: Set<UUID> = []
     @State private var textPreview: ImportedNoticeTextPreview?
     @State private var reviewSession: ImportedNoticeReviewSession?
+    @State private var importerOpenAttemptID: UUID?
+    @State private var selectedImportedFindingObjectID: NSManagedObjectID?
+    @State private var showImportedRecordDetail = false
 
     var body: some View {
         List {
             Section("操作") {
                 Button {
-                    showFileImporter = true
+                    beginFileImportSelection()
                 } label: {
                     Label("导入文件", systemImage: "square.and.arrow.down")
                 }
@@ -52,7 +56,7 @@ struct ImportedNoticeInboxView: View {
                     ContentUnavailableView(
                         "暂无导入文件",
                         systemImage: "tray",
-                        description: Text("支持 PDF、Word、图片和文本。导入后可提取正文并创建整改记录。")
+                        description: Text("支持 PDF、Word、图片和文本。导入后可提取正文并创建整改记录。也可以从微信、文件 App 或其他 App 分享 PDF、Word、图片到安全大师导入。")
                     )
                 } else {
                     ForEach(items) { item in
@@ -99,11 +103,12 @@ struct ImportedNoticeInboxView: View {
             allowedContentTypes: supportedContentTypes,
             allowsMultipleSelection: true
         ) { result in
+            importerOpenAttemptID = nil
             switch result {
             case .success(let urls):
                 importFiles(urls)
             case .failure(let error):
-                message = "导入失败：\(error.localizedDescription)"
+                message = "导入失败：\(error.localizedDescription)。请从系统文件 App 分享到安全大师导入，或稍后重试。"
             }
         }
         .sheet(isPresented: $showIntake) {
@@ -130,6 +135,13 @@ struct ImportedNoticeInboxView: View {
                 )
             }
         }
+        .sheet(isPresented: $showImportedRecordDetail) {
+            if let selectedImportedFindingObjectID {
+                NavigationStack {
+                    RecordDetailView(findingObjectID: selectedImportedFindingObjectID)
+                }
+            }
+        }
     }
 
     private var supportedContentTypes: [UTType] {
@@ -141,6 +153,18 @@ struct ImportedNoticeInboxView: View {
 
     private func reloadItems() {
         items = ImportedNoticeDocumentStore.list()
+    }
+
+    private func beginFileImportSelection() {
+        let attemptID = UUID()
+        importerOpenAttemptID = attemptID
+        message = "正在打开文件选择器…也可以从微信、文件 App 或其他 App 分享到安全大师导入。"
+        showFileImporter = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard importerOpenAttemptID == attemptID, !isImporting else { return }
+            message = "如果文件选择器未弹出，请从系统文件 App 分享到安全大师导入，或稍后重试。"
+        }
     }
 
     private func documentCard(for item: ImportedNoticeDocument) -> some View {
@@ -182,11 +206,22 @@ struct ImportedNoticeInboxView: View {
                     .truncationMode(.tail)
             }
 
+            if item.fileType == .pdf, item.extractedTextLength > 0, item.extractedTextLength < 120 {
+                Label("该 PDF 可能是扫描件，文字识别结果可能不完整，请核对后再入库。", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             HStack(spacing: 10) {
                 Spacer(minLength: 0)
 
                 Button {
-                    generateOrOpenDraft(for: item)
+                    if item.processingStatus == .reviewed {
+                        openPersistedRecord(for: item)
+                    } else {
+                        generateOrOpenDraft(for: item)
+                    }
                 } label: {
                     Label(primaryActionTitle(for: item), systemImage: primaryActionIcon(for: item))
                         .labelStyle(.titleAndIcon)
@@ -257,10 +292,11 @@ struct ImportedNoticeInboxView: View {
         Task {
             let imported = await ImportedNoticeDocumentStore.importFiles(from: urls)
             await MainActor.run {
+                importerOpenAttemptID = nil
                 isImporting = false
                 reloadItems()
                 if imported.isEmpty {
-                    message = "未导入成功，请重试。"
+                    message = "未导入成功，请从系统文件 App 分享到安全大师导入，或稍后重试。"
                 } else {
                     message = "已导入 \(imported.count) 份文件。"
                 }
@@ -355,7 +391,9 @@ struct ImportedNoticeInboxView: View {
     }
 
     private func handleStatusTap(for item: ImportedNoticeDocument) {
-        if ImportedNoticeDocumentStore.draft(forDocumentID: item.id) != nil {
+        if item.processingStatus == .reviewed {
+            openPersistedRecord(for: item)
+        } else if ImportedNoticeDocumentStore.draft(forDocumentID: item.id) != nil {
             openReviewIfAvailable(for: item)
         } else if item.extractedTextLength > 0 {
             showCleanedText(for: item)
@@ -374,6 +412,9 @@ struct ImportedNoticeInboxView: View {
         if parsingDraftIDs.contains(item.id) {
             return "生成中"
         }
+        if item.processingStatus == .reviewed {
+            return "查看记录"
+        }
         return ImportedNoticeDocumentStore.draft(forDocumentID: item.id) == nil ? "生成草稿" : "草稿核对"
     }
 
@@ -389,7 +430,7 @@ struct ImportedNoticeInboxView: View {
             return ImportedNoticeCardStatus(title: "草稿生成中", systemImage: "sparkles", tint: .purple)
         }
         if item.processingStatus == .reviewed {
-            return ImportedNoticeCardStatus(title: "已确认入库", systemImage: "checkmark.seal.fill", tint: .green)
+            return ImportedNoticeCardStatus(title: "已入库", systemImage: "checkmark.seal.fill", tint: .green)
         }
         if item.processingStatus == .archivedOnly {
             return ImportedNoticeCardStatus(title: "仅保存原文件", systemImage: "archivebox.fill", tint: .secondary)
@@ -398,7 +439,7 @@ struct ImportedNoticeInboxView: View {
             return ImportedNoticeCardStatus(title: "草稿生成", systemImage: "doc.text.fill", tint: .purple)
         }
         if item.processingStatus == .extractionFailed || item.processingStatus == .parsingFailed {
-            return ImportedNoticeCardStatus(title: "处理失败", systemImage: "exclamationmark.triangle.fill", tint: .red)
+            return ImportedNoticeCardStatus(title: "导入失败", systemImage: "exclamationmark.triangle.fill", tint: .red)
         }
         if item.extractedTextLength > 0 || item.processingStatus == .extracted {
             return ImportedNoticeCardStatus(title: "已提取", systemImage: "text.badge.checkmark", tint: .green)
@@ -407,6 +448,10 @@ struct ImportedNoticeInboxView: View {
     }
 
     private func generateOrOpenDraft(for item: ImportedNoticeDocument) {
+        if item.processingStatus == .reviewed {
+            openPersistedRecord(for: item)
+            return
+        }
         if let draft = ImportedNoticeDocumentStore.draft(forDocumentID: item.id) {
             openReview(for: item, draft: draft)
             return
@@ -441,6 +486,22 @@ struct ImportedNoticeInboxView: View {
                     message = "生成草稿失败：\(error.localizedDescription)"
                 }
             }
+        }
+    }
+
+    private func openPersistedRecord(for item: ImportedNoticeDocument) {
+        let request = NSFetchRequest<InspectionFinding>(entityName: "InspectionFinding")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "findingId == %@", "imported-notice:\(item.id.uuidString)")
+        do {
+            guard let finding = try viewContext.fetch(request).first else {
+                message = "未找到“\(item.fileName)”对应的整改记录，可能已被删除。"
+                return
+            }
+            selectedImportedFindingObjectID = finding.objectID
+            showImportedRecordDetail = true
+        } catch {
+            message = "打开整改记录失败：\(error.localizedDescription)"
         }
     }
 
@@ -599,6 +660,8 @@ private struct ImportedNoticeDeleteButtonStyle: ButtonStyle {
 }
 
 private struct ImportedNoticeTextPreviewView: View {
+    @Environment(\.dismiss) private var dismiss
+
     let preview: ImportedNoticeTextPreview
 
     var body: some View {
@@ -615,6 +678,13 @@ private struct ImportedNoticeTextPreviewView: View {
         }
         .navigationTitle(preview.title)
         .inlineNavigationTitleMode()
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("关闭") {
+                    dismiss()
+                }
+            }
+        }
     }
 }
 

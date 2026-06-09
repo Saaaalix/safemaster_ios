@@ -113,12 +113,15 @@ struct RectificationTimelineSection: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         sheetCard(title: "计划完成日（可选）", systemImage: "calendar.badge.clock") {
-                    DatePicker(
-                        "计划完成日期",
-                        selection: $scheduledDueDate,
-                        displayedComponents: [.date]
-                    )
-                    .environment(\.locale, Locale(identifier: "zh_CN"))
+                            DatePicker(
+                                "计划完成日期",
+                                selection: $scheduledDueDate,
+                                displayedComponents: [.date]
+                            )
+                            .environment(\.locale, Locale(identifier: "zh_CN"))
+                            RectificationDueDateShortcutButtons { date in
+                                scheduledDueDate = date
+                            }
                         }
                     }
                     .padding(16)
@@ -339,6 +342,30 @@ struct RectificationTimelineSection: View {
     }
 }
 
+private struct RectificationDueDateShortcutButtons: View {
+    let onPick: (Date) -> Void
+
+    var body: some View {
+        let calendar = Calendar.current
+        HStack(spacing: 8) {
+            Button("今天") {
+                onPick(calendar.startOfDay(for: Date()))
+            }
+            Button("3天") {
+                onPick(calendar.date(byAdding: .day, value: 3, to: Date()) ?? Date())
+            }
+            Button("7天") {
+                onPick(calendar.date(byAdding: .day, value: 7, to: Date()) ?? Date())
+            }
+            Text("自定义请点日期")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption.weight(.semibold))
+        .buttonStyle(.bordered)
+    }
+}
+
 // MARK: - 单轮卡片
 
 private struct RectificationRoundCard: View {
@@ -432,6 +459,10 @@ private struct RectificationRoundCard: View {
                         )
                         .environment(\.locale, Locale(identifier: "zh_CN"))
                         .font(.caption)
+                        RectificationDueDateShortcutButtons { date in
+                            round.plannedDueAt = date
+                            saveQuietly()
+                        }
                         if let deadline = deadlineHint {
                             Text(deadline.text)
                                 .font(.caption2.weight(.semibold))
@@ -851,8 +882,7 @@ private struct RectificationRoundCard: View {
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "zh_CN")
-        f.dateStyle = .medium
-        f.timeStyle = .none
+        f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 

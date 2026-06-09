@@ -6,6 +6,7 @@
 import Foundation
 
 enum ExternalNoticeRecognizedField: CaseIterable {
+    case documentType
     case issuer
     case inspectedUnit
     case inspectorName
@@ -20,6 +21,7 @@ enum ExternalNoticeRecognizedField: CaseIterable {
     case rectificationMeasures
     case rectificationSituation
     case legalBasis
+    case summary
 }
 
 struct ExternalNoticeIssueItem: Hashable {
@@ -29,7 +31,16 @@ struct ExternalNoticeIssueItem: Hashable {
     var rectificationMeasures: String?
 }
 
+enum ExternalNoticeRecognitionStatus: Hashable {
+    case archiveFieldsRecognized
+    case archiveFieldsNeedSupplement
+}
+
 struct ExternalNoticeRecognitionDraft {
+    var documentType: ImportedNoticeDocumentType = .unknown
+    var originalText: String = ""
+    var cleanedText: String = ""
+    var summary: String?
     var issuer: String?
     var inspectedUnit: String?
     var inspectorName: String?
@@ -45,6 +56,8 @@ struct ExternalNoticeRecognitionDraft {
     var rectificationSituation: String?
     var legalBasis: String?
     var issueItems: [ExternalNoticeIssueItem] = []
+    var status: ExternalNoticeRecognitionStatus = .archiveFieldsNeedSupplement
+    var hazardsRecognized: Bool = false
     var confidence: [ExternalNoticeRecognizedField: Double] = [:]
     var warnings: [String] = []
 }
@@ -53,6 +66,8 @@ enum ExternalNoticeRecognizer {
     static func recognize(from rawText: String) -> ExternalNoticeRecognitionDraft {
         let text = normalize(rawText)
         var draft = ExternalNoticeRecognitionDraft()
+        draft.originalText = rawText
+        draft.cleanedText = text
 
         draft.issuer = matchLineValue(
             in: text,
@@ -83,6 +98,7 @@ enum ExternalNoticeRecognizer {
         if draft.projectName != nil { draft.confidence[.projectName] = 0.9 }
 
         draft.issueItems = parseIssueItems(from: text)
+        draft.hazardsRecognized = !draft.issueItems.isEmpty
         if let explicitCount = matchHazardCount(in: text) {
             draft.hazardCount = explicitCount
             draft.confidence[.hazardCount] = 0.9
@@ -135,6 +151,13 @@ enum ExternalNoticeRecognizer {
         )
         if draft.dueDate != nil { draft.confidence[.dueDate] = 0.9 }
 
+        draft.documentType = inferDocumentType(from: text, draft: draft)
+        if draft.documentType != .unknown {
+            draft.confidence[.documentType] = 0.82
+        }
+
+        // 外部通知导入采用归档优先策略。
+        // hazards 仅作为可选参考信息，不作为建档失败或入库阻断条件。
         if draft.hazardDescription == nil {
             draft.hazardDescription = draft.issueItems.first?.hazardDescription
                 ?? fallbackHazardDescription(from: extractIssueFocusedText(from: text))
@@ -149,6 +172,19 @@ enum ExternalNoticeRecognizer {
             draft.location = location
             draft.confidence[.location] = 0.66
         }
+        let hasHazardDescription = draft.hazardDescription?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == false
+        let hasRectificationMeasures = draft.rectificationMeasures?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == false
+        draft.hazardsRecognized = draft.hazardsRecognized
+            || hasHazardDescription
+            || hasRectificationMeasures
+
+        draft.summary = summary(from: draft, text: text)
+        if draft.summary != nil { draft.confidence[.summary] = 0.7 }
+        draft.status = archiveFieldRecognitionStatus(for: draft)
 
         if draft.projectName == nil {
             draft.warnings.append("未识别出“项目名称”，请手动补充。")
@@ -159,10 +195,61 @@ enum ExternalNoticeRecognizer {
         if draft.noticeDate == nil {
             draft.warnings.append("未识别出“检查时间/来文日期”，请手动补充。")
         }
-        if draft.hazardCount == nil {
-            draft.warnings.append("未识别出“隐患条数”，请核对候选条目或手动填写。")
+        if !draft.hazardsRecognized {
+            draft.warnings.append("隐患条目未完整识别，不影响归档。你可以归档后在记录详情中继续补充。")
         }
         return draft
+    }
+
+    private static func archiveFieldRecognitionStatus(for draft: ExternalNoticeRecognitionDraft) -> ExternalNoticeRecognitionStatus {
+        let recognizedArchiveFields = [
+            draft.issuer,
+            draft.noticeNo,
+            draft.inspectedUnit,
+            draft.projectName,
+            draft.noticeDate.map { _ in "date" },
+            draft.dueDate.map { _ in "deadline" },
+            draft.summary
+        ].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return recognizedArchiveFields.count >= 2 ? .archiveFieldsRecognized : .archiveFieldsNeedSupplement
+    }
+
+    private static func inferDocumentType(from text: String, draft: ExternalNoticeRecognitionDraft) -> ImportedNoticeDocumentType {
+        let rectificationKeywords = ["整改完成", "整改情况", "复查意见", "验收通过", "闭环", "复查结论", "已整改", "整改回复"]
+        let hazardKeywords = ["限期整改", "存在问题", "隐患", "整改要求", "整改期限", "责令"]
+        let rectificationScore = rectificationKeywords.reduce(0) { $0 + (text.contains($1) ? 1 : 0) }
+            + (draft.rectificationSituation == nil ? 0 : 2)
+        let hazardScore = hazardKeywords.reduce(0) { $0 + (text.contains($1) ? 1 : 0) }
+            + (draft.dueDate == nil ? 0 : 1)
+            + (draft.issueItems.isEmpty ? 0 : 1)
+        if rectificationScore > hazardScore {
+            return .rectificationReply
+        }
+        if hazardScore > 0 {
+            return .hazardNotice
+        }
+        return .unknown
+    }
+
+    private static func summary(from draft: ExternalNoticeRecognitionDraft, text: String) -> String? {
+        let candidates = [
+            draft.projectName,
+            draft.noticeNo,
+            draft.hazardDescription,
+            draft.rectificationSituation,
+            firstMeaningfulLine(in: text)
+        ]
+        return candidates
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first(where: { !$0.isEmpty })
+    }
+
+    private static func firstMeaningfulLine(in text: String) -> String? {
+        text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { $0.count >= 8 && !looksLikeLabelLine($0) }
+            .map { String($0.prefix(120)) }
     }
 
     private static func normalize(_ text: String) -> String {

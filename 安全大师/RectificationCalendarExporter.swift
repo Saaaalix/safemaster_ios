@@ -6,6 +6,9 @@
 import Foundation
 #if canImport(EventKit)
 import EventKit
+#if canImport(ObjectiveC)
+import ObjectiveC
+#endif
 #endif
 
 /// 限期整改时可选写入系统「日历」作为到期提醒（需用户授权）。
@@ -48,28 +51,37 @@ enum RectificationCalendarExporter {
     private static func requestEventAccess(_ store: EKEventStore) async -> Bool {
         #if os(iOS)
         if #available(iOS 17.0, *) {
-            return (try? await store.requestFullAccessToEvents()) ?? false
+            return (try? await store.requestWriteOnlyAccessToEvents()) ?? false
         } else {
             return await requestLegacyEventAccess(store)
         }
         #elseif os(macOS)
-        return await withCheckedContinuation { cont in
-            store.requestAccess(to: .event) { ok, _ in
-                cont.resume(returning: ok)
-            }
+        if #available(macOS 14.0, *) {
+            return (try? await store.requestWriteOnlyAccessToEvents()) ?? false
+        } else {
+            return await requestLegacyEventAccess(store)
         }
         #else
         return false
         #endif
     }
 
-    #if os(iOS)
-    @available(iOS, introduced: 4.0, deprecated: 17.0)
+    #if os(iOS) || os(macOS)
     private static func requestLegacyEventAccess(_ store: EKEventStore) async -> Bool {
         await withCheckedContinuation { cont in
-            store.requestAccess(to: .event) { ok, _ in
+            #if canImport(ObjectiveC)
+            let selector = NSSelectorFromString("requestAccessToEntityType:completion:")
+            let completion: @convention(block) (Bool, Error?) -> Void = { ok, _ in
                 cont.resume(returning: ok)
             }
+            if store.responds(to: selector) {
+                store.perform(selector, with: EKEntityType.event.rawValue, with: completion)
+            } else {
+                cont.resume(returning: false)
+            }
+            #else
+            cont.resume(returning: false)
+            #endif
         }
     }
     #endif

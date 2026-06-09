@@ -24,9 +24,9 @@ private enum ExternalImportDestination: String, CaseIterable, Hashable {
     var helperText: String {
         switch self {
         case .hazardNotice:
-            return "按“待整改”记录入库，后续可继续整改闭环。"
+            return "先保存为外部文书归档记录，后续可继续补充整改闭环。"
         case .rectificationReply:
-            return "按“已整改”记录入库，自动归档为已通过轮次。"
+            return "先保存为整改回复归档记录，自动归入已通过轮次。"
         }
     }
 }
@@ -58,6 +58,7 @@ struct ExternalNoticeIntakeView: View {
     @State private var saveError: String?
     @State private var didAutoRecognize = false
     @State private var importDestination: ExternalImportDestination = .hazardNotice
+    @State private var isIssueSectionExpanded = false
     @State private var showFileImporter = false
     @State private var isImportingFile = false
     private let autoRecognizeOnAppear: Bool
@@ -173,50 +174,52 @@ struct ExternalNoticeIntakeView: View {
                     confidenceLine(.hazardCount, fallbackText: "隐患条数识别置信")
                 }
 
-                Section("隐患条目") {
-                    if !recognizedIssueItems.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("识别到 \(recognizedIssueItems.count) 条候选隐患，轻点可填入下方字段。")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            ForEach(Array(recognizedIssueItems.enumerated()), id: \.offset) { index, item in
-                                Button {
-                                    applyIssueItem(item)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(item.location ?? item.title)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(.primary)
-                                        Text(item.hazardDescription)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(3)
+                Section("可选信息") {
+                    DisclosureGroup("可选：识别到的隐患条目", isExpanded: $isIssueSectionExpanded) {
+                        if !recognizedIssueItems.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("识别到 \(recognizedIssueItems.count) 条候选隐患，轻点可填入下方字段。")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                ForEach(Array(recognizedIssueItems.enumerated()), id: \.offset) { index, item in
+                                    Button {
+                                        applyIssueItem(item)
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(item.location ?? item.title)
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.primary)
+                                            Text(item.hazardDescription)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(3)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                     }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .buttonStyle(.bordered)
+                                    .accessibilityLabel("填入候选隐患 \(index + 1)")
                                 }
-                                .buttonStyle(.bordered)
-                                .accessibilityLabel("填入候选隐患 \(index + 1)")
                             }
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
-                    }
-                    TextField("部位/地点", text: $location)
-                    confidenceLine(.location, fallbackText: "部位识别置信")
-                    TextField("存在问题（可选，建议填写）", text: $hazardDescription, axis: .vertical)
-                        .lineLimit(3...8)
-                    confidenceLine(.hazardDescription, fallbackText: "存在问题识别置信")
-                    TextField("整改要求（可选，建议填写）", text: $rectificationMeasures, axis: .vertical)
-                        .lineLimit(3...8)
-                    confidenceLine(.rectificationMeasures, fallbackText: "整改要求识别置信")
-                    if importDestination == .rectificationReply {
-                        TextField("整改情况（建议填写）", text: $rectificationSituation, axis: .vertical)
+                        TextField("部位/地点", text: $location)
+                        confidenceLine(.location, fallbackText: "部位识别置信")
+                        TextField("存在问题（可选，建议填写）", text: $hazardDescription, axis: .vertical)
                             .lineLimit(3...8)
-                        confidenceLine(.rectificationSituation, fallbackText: "整改情况识别置信")
+                        confidenceLine(.hazardDescription, fallbackText: "存在问题识别置信")
+                        TextField("整改要求（可选，建议填写）", text: $rectificationMeasures, axis: .vertical)
+                            .lineLimit(3...8)
+                        confidenceLine(.rectificationMeasures, fallbackText: "整改要求识别置信")
+                        if importDestination == .rectificationReply {
+                            TextField("整改情况（建议填写）", text: $rectificationSituation, axis: .vertical)
+                                .lineLimit(3...8)
+                            confidenceLine(.rectificationSituation, fallbackText: "整改情况识别置信")
+                        }
+                        TextField("整改依据（可选）", text: $legalBasis, axis: .vertical)
+                            .lineLimit(3...8)
+                        confidenceLine(.legalBasis, fallbackText: "整改依据识别置信")
                     }
-                    TextField("整改依据（可选）", text: $legalBasis, axis: .vertical)
-                        .lineLimit(3...8)
-                    confidenceLine(.legalBasis, fallbackText: "整改依据识别置信")
-                    Text("提示：本区域可留空，后续可在详情里补录。")
+                    Text("这些内容仅作为参考，不填写也可以先归档。归档后可在记录详情中继续补充。")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -227,14 +230,14 @@ struct ExternalNoticeIntakeView: View {
                     dismissKeyboard()
                 }
             )
-            .navigationTitle("录入外部通知单")
+            .navigationTitle("外部通知归档")
             .inlineNavigationTitleMode()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
+                    Button("确认归档") {
                         saveFindingFromExternalNotice()
                     }
                     .disabled(!canSave)
@@ -398,11 +401,11 @@ struct ExternalNoticeIntakeView: View {
         let recognizedCount = draft.confidence.count
         importDestination = inferImportDestination(rawText: rawNoticeText, draft: draft)
         if recognizedCount == 0 {
-            recognitionHint = "未识别到可用归档字段，请手动补充后保存。"
+            recognitionHint = "正文已归档为待补信息，但部分字段未识别。请补充关键归档信息后保存。"
         } else if !recognizedIssueItems.isEmpty {
-            recognitionHint = "已提取 \(recognizedCount) 项归档信息，并识别到 \(recognizedIssueItems.count) 条候选隐患，请点选核对后保存。"
+            recognitionHint = "已提取 \(recognizedCount) 项归档信息，并识别到 \(recognizedIssueItems.count) 条候选隐患；候选隐患不影响归档。"
         } else {
-            recognitionHint = "已提取 \(recognizedCount) 项归档信息，已预选为「\(importDestination.title)」，请核对后保存。"
+            recognitionHint = "已提取 \(recognizedCount) 项归档信息，已预选为「\(importDestination.title)」。隐患条目未完整识别，不影响归档。"
         }
     }
 
@@ -414,7 +417,7 @@ struct ExternalNoticeIntakeView: View {
         if let value = item.rectificationMeasures {
             rectificationMeasures = value
         }
-        recognitionHint = "已填入“\(item.title)”候选内容，请核对后保存。"
+        recognitionHint = "已填入“\(item.title)”候选内容，请核对后归档。"
     }
 
     private func inferImportDestination(rawText: String, draft: ExternalNoticeRecognitionDraft) -> ExternalImportDestination {

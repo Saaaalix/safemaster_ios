@@ -48,8 +48,11 @@ enum ReportTemplatePDFExporter {
             totalPages: pageCount
         )
 
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("安全大师_模板报告_\(Int(Date().timeIntervalSince1970)).pdf")
+        let url = ReportExportFileNameBuilder.fileURL(
+            projectName: editableFields.projectName,
+            documentName: documentKind == .hazardNotice ? "隐患整改通知单" : "隐患整改回复报告",
+            fileExtension: "pdf"
+        )
         do {
             try rendered.data.write(to: url)
             return url

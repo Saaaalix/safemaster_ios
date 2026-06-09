@@ -130,8 +130,11 @@ enum ShareableReportPDFBuilder {
             }
         }
 
-        let name = "\(kind.fileNamePrefix)_\(Int(Date().timeIntervalSince1970)).pdf"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        let url = ReportExportFileNameBuilder.fileURL(
+            findings: rows,
+            kind: kind,
+            fileExtension: "pdf"
+        )
         do {
             try data.write(to: url)
             return url

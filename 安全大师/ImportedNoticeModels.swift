@@ -424,6 +424,7 @@ extension ImportedNoticeDraft {
 
     private static func summary(from draft: ExternalNoticeRecognitionDraft, hazards: [ImportedNoticeHazardDraft]) -> String {
         let candidates = [
+            draft.summary,
             draft.projectName,
             draft.noticeNo,
             hazards.first?.description.value,

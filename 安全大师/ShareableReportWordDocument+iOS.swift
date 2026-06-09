@@ -86,8 +86,11 @@ enum ShareableReportWordDocumentBuilder {
 
         guard let zipData = DocxZip.build(entries: entries) else { throw BuildError.zipFailed }
 
-        let name = "\(kind.fileNamePrefix)_\(Int(Date().timeIntervalSince1970)).docx"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        let url = ReportExportFileNameBuilder.fileURL(
+            findings: rows,
+            kind: kind,
+            fileExtension: "docx"
+        )
         do {
             try zipData.write(to: url)
             return url

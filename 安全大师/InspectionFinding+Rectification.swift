@@ -68,7 +68,7 @@ enum RectificationClosureSummary: Equatable {
 extension InspectionFinding {
     var rectificationRoundsArray: [RectificationRound] {
         guard let raw = rectificationRounds else { return [] }
-        return raw
+        return raw.array
             .compactMap { $0 as? RectificationRound }
             .sorted { $0.roundIndex < $1.roundIndex }
     }

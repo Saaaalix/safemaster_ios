@@ -33,6 +33,11 @@ struct InspectionRecordSummaryRow: View {
                     label: "来源",
                     value: finding.sourceDisplayLabel
                 )
+                InspectionRecordSummaryMetaLine(
+                    label: "期限",
+                    value: RectificationDueStatus.status(for: finding).text,
+                    tint: RectificationDueStatus.status(for: finding).tint
+                )
                 Text(finding.recordListHazardSummary)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -62,7 +67,8 @@ enum InspectionRecordSummaryStatus {
         case .notStarted:
             return .workflow(text: "待安排", tint: .orange)
         case .inProgress:
-            return .workflow(text: finding.rectificationClosureSummary.compactBadgeText, tint: .orange)
+            let due = RectificationDueStatus.status(for: finding)
+            return .workflow(text: due.text, tint: due.tint)
         case .awaitingVerification:
             return .workflow(text: finding.rectificationClosureSummary.compactBadgeText, tint: .blue)
         case .closed:
@@ -110,6 +116,7 @@ enum InspectionRecordSummaryStatus {
 private struct InspectionRecordSummaryMetaLine: View {
     let label: String
     let value: String
+    var tint: Color = .secondary
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -119,7 +126,7 @@ private struct InspectionRecordSummaryMetaLine: View {
                 .frame(width: 44, alignment: .trailing)
             Text(value)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(tint)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

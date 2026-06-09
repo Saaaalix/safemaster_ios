@@ -64,10 +64,16 @@ struct HazardResultPayload: Hashable {
     var userRiskLevelOverride: String? = nil
     /// 用户选择的地点分类；用于约束 AI 语境和正式报告用语。
     var sceneType: SafetyInspectionScene = .construction
+    /// 用户快记时选择的隐患类型标签；用于详情展示和辅助正式报告语境。
+    var hazardTypeTags: [String] = []
     /// 识别页当次填写的项目名称（快照写入 Core Data，与 UserDefaults 封面设置解耦展示）。
     var reportProjectName: String? = nil
     /// 识别页当次填写的检查人。
     var reportInspectorName: String? = nil
+    /// 识别页当次填写或带出的整改责任人 / 班组。
+    var rectificationResponsiblePerson: String? = nil
+    /// 识别页当次填写或带出的责任单位。
+    var rectificationResponsibleUnit: String? = nil
 }
 
 extension HazardResultPayload {

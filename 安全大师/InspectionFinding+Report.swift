@@ -659,7 +659,9 @@ extension InspectionFinding {
         f.photoData = payload.photoData
         f.secondaryPhotoData = payload.secondaryPhotoData
         let sup = payload.supplementaryText.trimmingCharacters(in: .whitespacesAndNewlines)
-        f.supplementaryText = sup.isEmpty ? nil : sup
+        let tagLine = payload.hazardTypeTags.isEmpty ? "" : "隐患类型：\(payload.hazardTypeTags.joined(separator: "、"))"
+        let taggedSupplementary = [tagLine, sup].filter { !$0.isEmpty }.joined(separator: "\n")
+        f.supplementaryText = taggedSupplementary.isEmpty ? nil : taggedSupplementary
         f.hazardDescription = payload.analysis.hazardDescription
         f.rectificationMeasures = payload.analysis.rectificationMeasures
         f.riskLevel = HazardRiskLevel.effectiveLevel(
@@ -688,6 +690,13 @@ extension InspectionFinding {
             inspectorName: inspector
         )
         RecentFieldValuesStore.record(loc, for: .location)
+        RecentFieldValuesStore.recordQuickInspectionFields(
+            projectName: project,
+            inspectorName: inspector,
+            location: loc,
+            responsiblePerson: payload.rectificationResponsiblePerson ?? "",
+            responsibleUnit: payload.rectificationResponsibleUnit ?? ""
+        )
 
         switch payload.rectificationIntent {
         case .immediate:
@@ -696,7 +705,9 @@ extension InspectionFinding {
                 InspectionFinding.submitImmediateRectificationIfReady(r)
             }
         case .scheduled:
-            _ = f.startFirstRectificationRound(mode: .scheduled, plannedDueAt: payload.rectificationPlannedDueAt, context: context)
+            if let r = f.startFirstRectificationRound(mode: .scheduled, plannedDueAt: payload.rectificationPlannedDueAt, context: context) {
+                InspectionFinding.applyRectificationResponsibility(to: r, from: payload)
+            }
         }
 
         do {
@@ -712,8 +723,20 @@ extension InspectionFinding {
     fileprivate static func applyRectificationPrefill(to round: RectificationRound, from payload: HazardResultPayload) {
         let raw = payload.prefillRectificationActionNote.trimmingCharacters(in: .whitespacesAndNewlines)
         round.actionTaken = raw.isEmpty ? nil : raw
+        applyRectificationResponsibility(to: round, from: payload)
         if let d = payload.prefillRectificationPhotoData, !d.isEmpty {
             round.evidencePhotoData = d
+        }
+    }
+
+    fileprivate static func applyRectificationResponsibility(to round: RectificationRound, from payload: HazardResultPayload) {
+        let person = payload.rectificationResponsiblePerson?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let unit = payload.rectificationResponsibleUnit?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let combined = [person, unit].filter { !$0.isEmpty }.joined(separator: " / ")
+        if !combined.isEmpty {
+            round.responsibleParty = combined
         }
     }
 
@@ -1089,8 +1112,11 @@ enum ShareableInspectionReportExporter {
         }
         var items: [Any] = []
         let body = DaySummaryBuilder.reportText(for: list, kind: kind)
-        let name = "\(kind.fileNamePrefix)_\(Int(Date().timeIntervalSince1970)).txt"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        let url = ReportExportFileNameBuilder.fileURL(
+            findings: list,
+            kind: kind,
+            fileExtension: "txt"
+        )
         if (try? body.write(to: url, atomically: true, encoding: .utf8)) != nil {
             items.append(url)
         } else {

@@ -44,11 +44,23 @@ struct BuildingSafetyHubView: View {
         DashboardSummary(findings: dashboardFindings, educationRecords: Array(educationRecords))
     }
 
+    private var todayPriorityFindings: [InspectionFinding] {
+        dashboardFindings
+            .filter { !$0.isRectificationClosed }
+            .sorted { lhs, rhs in
+                todayPriorityScore(lhs) < todayPriorityScore(rhs)
+            }
+            .prefix(5)
+            .map { $0 }
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 16) {
                     dashboardCard(summary: dashboardSummary)
+
+                    todayTodoSection
 
                     hubActionTile(
                         title: "隐患识别",
@@ -67,19 +79,11 @@ struct BuildingSafetyHubView: View {
                     }
 
                     hubActionTile(
-                        title: "导入箱",
-                        subtitle: "先导入文件，再决定是否识别建档",
-                        systemImage: "tray.full.fill"
+                        title: "文书中心",
+                        subtitle: "导入文件、套用模板、查看存档报告",
+                        systemImage: "folder.fill.badge.gearshape"
                     ) {
-                        path.append(.importedNoticeInbox)
-                    }
-
-                    hubActionTile(
-                        title: "报告模板",
-                        subtitle: "设置标题、字段、照片布局与签字栏",
-                        systemImage: "doc.text.magnifyingglass"
-                    ) {
-                        path.append(.reportTemplate)
+                        path.append(.documentCenter)
                     }
 
                     hubActionTile(
@@ -135,8 +139,12 @@ struct BuildingSafetyHubView: View {
                     SafetyEducationView()
                 case .monthlySummary:
                     MonthlyWorkSummaryView()
+                case .documentCenter:
+                    DocumentCenterView(path: $path)
                 case .reportTemplate:
                     ReportTemplateEditorView()
+                case .reportArchive:
+                    ReportArchiveView()
                 case .hazardLibrary:
                     DocumentLibraryView()
                 case .importedNoticeInbox:
@@ -177,7 +185,7 @@ struct BuildingSafetyHubView: View {
                 dashboardMetric(
                     title: "待整改",
                     value: "\(summary.pendingCount)",
-                    caption: summary.pendingCount == 0 ? "暂无需跟进" : "需跟进闭环",
+                    caption: rectificationMetricCaption(summary),
                     systemImage: "exclamationmark.triangle.fill",
                     tint: Self.productivityAccent,
                     action: {
@@ -257,6 +265,99 @@ struct BuildingSafetyHubView: View {
                 )
             }
         }
+    }
+
+    private var todayTodoSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("今天要处理", systemImage: "calendar.badge.exclamationmark")
+                    .font(.headline.weight(.semibold))
+                Spacer()
+                if !todayPriorityFindings.isEmpty {
+                    Text("\(todayPriorityFindings.count) 项")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Self.productivityAccent)
+                }
+            }
+
+            if todayPriorityFindings.isEmpty {
+                Text("今日暂无紧急待处理事项")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color(.systemGroupedBackground).opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(todayPriorityFindings, id: \.objectID) { finding in
+                        NavigationLink {
+                            RecordDetailView(findingObjectID: finding.objectID)
+                        } label: {
+                            todayTodoRow(finding)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 3)
+    }
+
+    private func todayTodoRow(_ finding: InspectionFinding) -> some View {
+        let due = RectificationDueStatus.status(for: finding)
+        return HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(finding.reportLocationPart)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Text(finding.recordListHazardSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    todoPill(finding.reportRiskLevelDisplay, tint: riskTint(for: finding))
+                    todoPill(due.text, tint: due.tint)
+                    todoPill(finding.rectificationClosureSummary.compactBadgeText, tint: .secondary)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .padding(.top, 4)
+        }
+        .padding(12)
+        .background(Color(.systemGroupedBackground).opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func todoPill(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(tint.opacity(0.13), in: Capsule())
+            .foregroundStyle(tint)
+    }
+
+    private func todayPriorityScore(_ finding: InspectionFinding) -> Int {
+        let due = RectificationDueStatus.status(for: finding)
+        let dueScore = due.priority * 10
+        let riskScore = isHighRisk(finding) ? 1 : 4
+        let fieldScore = ReportExportGuard.validate(findings: [finding], kind: .inspection).hasBlockingIssues ? 2 : 5
+        return dueScore + min(riskScore, fieldScore)
+    }
+
+    private func isHighRisk(_ finding: InspectionFinding) -> Bool {
+        let normalized = HazardRiskLevel.normalizedForStorage(finding.riskLevel)
+        return normalized == "重大风险" || normalized == "较大风险"
+    }
+
+    private func riskTint(for finding: InspectionFinding) -> Color {
+        isHighRisk(finding) ? .red : .secondary
     }
 
     private func dashboardMetricContent(
@@ -384,6 +485,12 @@ struct BuildingSafetyHubView: View {
     }
 
     private func rectificationSubtitle(for summary: DashboardSummary) -> String {
+        if summary.overdueCount > 0 {
+            return "已逾期 \(summary.overdueCount) 项，优先处理"
+        }
+        if summary.dueTodayCount > 0 {
+            return "今天到期 \(summary.dueTodayCount) 项，及时跟进"
+        }
         if summary.pendingCount > 0 {
             return "待整改 \(summary.pendingCount) 项，查看闭环进度"
         }
@@ -393,9 +500,18 @@ struct BuildingSafetyHubView: View {
         return "查看记录并跟进整改进度"
     }
 
+    private func rectificationMetricCaption(_ summary: DashboardSummary) -> String {
+        if summary.overdueCount > 0 { return "逾期 \(summary.overdueCount) 项" }
+        if summary.dueTodayCount > 0 { return "今天到期 \(summary.dueTodayCount) 项" }
+        return summary.pendingCount == 0 ? "暂无需跟进" : "需跟进闭环"
+    }
+
     private func educationSubtitle(for summary: DashboardSummary) -> String {
         if summary.monthEducationCount > 0 {
-            return "本月 \(summary.monthEducationCount) 次教育，\(summary.monthParticipantCount) 人次"
+            if summary.monthEducationMissingParticipantCount > 0 {
+                return "本月 \(summary.monthEducationCount) 次教育；\(summary.monthParticipantCount) 人次，\(summary.monthEducationMissingParticipantCount) 条未填人数"
+            }
+            return "本月 \(summary.monthEducationCount) 次教育；参加 \(summary.monthParticipantCount) 人次"
         }
         return "拍照留痕，生成教育记录"
     }
@@ -527,9 +643,12 @@ private struct DashboardSummary {
     let pendingCount: Int
     let highRiskCount: Int
     let closedCount: Int
+    let overdueCount: Int
+    let dueTodayCount: Int
     let todayCount: Int
     let monthEducationCount: Int
     let monthParticipantCount: Int
+    let monthEducationMissingParticipantCount: Int
     let recentTitle: String
     let recentSubtitle: String
 
@@ -538,6 +657,13 @@ private struct DashboardSummary {
         totalCount = findings.count
         pendingCount = findings.filter(\.shouldAppearInRectificationWorkflow).count
         closedCount = findings.filter(\.isRectificationClosed).count
+        overdueCount = findings.filter {
+            if case .overdue = RectificationDueStatus.status(for: $0) { return true }
+            return false
+        }.count
+        dueTodayCount = findings.filter {
+            RectificationDueStatus.status(for: $0) == .dueToday
+        }.count
         highRiskCount = findings.filter { finding in
             let normalized = HazardRiskLevel.normalizedForStorage(finding.riskLevel)
             return normalized == "重大风险" || normalized == "较大风险"
@@ -559,6 +685,7 @@ private struct DashboardSummary {
         }
         monthEducationCount = monthEducationRecords.count
         monthParticipantCount = monthEducationRecords.reduce(0) { $0 + Int($1.participantCount) }
+        monthEducationMissingParticipantCount = monthEducationRecords.filter { $0.participantCount == 0 }.count
 
         if let recent = findings.max(by: { lhs, rhs in
             Self.latestActivityDate(for: lhs) < Self.latestActivityDate(for: rhs)
@@ -581,18 +708,48 @@ private struct DashboardSummary {
     }
 
     private static func displayTitle(for finding: InspectionFinding) -> String {
-        let candidates = [
+        let location = firstMeaningful([
             finding.location,
-            finding.hazardDescription,
             finding.reportProjectName
-        ]
+        ], fallback: "未填写部位")
+        let issue = firstMeaningful([
+            finding.hazardDescription,
+            finding.rectificationMeasures
+        ], fallback: "暂无问题摘要")
+        let risk = HazardRiskLevel.normalizedForStorage(finding.riskLevel ?? "") ?? ""
+        let parts = [
+            location,
+            issue,
+            risk.isEmpty ? nil : risk
+        ].compactMap { $0 }
+        return truncated(parts.joined(separator: " · "), maxLength: 72)
+    }
 
+    private static func firstMeaningful(_ candidates: [String?], fallback: String) -> String {
         for candidate in candidates {
-            let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let trimmed = normalizedSingleLine(candidate)
             if !trimmed.isEmpty { return trimmed }
         }
+        return fallback
+    }
 
-        return "未填写地点"
+    private static func normalizedSingleLine(_ raw: String?) -> String {
+        let singleLine = (raw ?? "")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let range = singleLine.range(of: "现场简述：") {
+            return String(singleLine[range.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return singleLine
+            .replacingOccurrences(of: "【离线/手工记录】", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func truncated(_ text: String, maxLength: Int) -> String {
+        guard text.count > maxLength else { return text }
+        return String(text.prefix(maxLength)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 
     private static func format(_ date: Date) -> String {
@@ -636,7 +793,7 @@ extension SafetyEducationRecord {
     var displayParticipants: String {
         let text = participants?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !text.isEmpty { return text }
-        return participantCount > 0 ? "\(participantCount) 人" : "未填写"
+        return participantCount > 0 ? "\(participantCount) 人" : "参加人数未填写"
     }
 
     static func draftText(
@@ -702,6 +859,7 @@ private struct SafetyEducationView: View {
     @State private var photoData: Data?
     @State private var pickerItem: PhotosPickerItem?
     @State private var saveMessage: String?
+    @State private var showEmptyParticipantCountAlert = false
 
     private static let productivityAccent = Color(red: 0.95, green: 0.65, blue: 0.3)
     private static let dateFormatter: DateFormatter = {
@@ -740,6 +898,14 @@ private struct SafetyEducationView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("安全教育")
         .inlineNavigationTitleMode()
+        .alert("参加人数未填写", isPresented: $showEmptyParticipantCountAlert) {
+            Button("返回填写", role: .cancel) {}
+            Button("继续保存") {
+                saveRecord(allowEmptyParticipantCount: true)
+            }
+        } message: {
+            Text("未填写参加人数时，将按 0 人次计入统计。")
+        }
         .onChange(of: pickerItem) { _, new in
             guard let new else { return }
             Task {
@@ -841,7 +1007,7 @@ private struct SafetyEducationView: View {
             }
 
             Button {
-                saveRecord()
+                requestSaveRecord()
             } label: {
                 Label("保存教育记录", systemImage: "tray.and.arrow.down")
                     .frame(maxWidth: .infinity)
@@ -947,6 +1113,11 @@ private struct SafetyEducationView: View {
                 }
                 .buttonStyle(.bordered)
             }
+            if participantCount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Label("不填将按 0 人次统计", systemImage: "info.circle")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -969,7 +1140,19 @@ private struct SafetyEducationView: View {
         }
     }
 
-    private func saveRecord() {
+    private func requestSaveRecord() {
+        if participantCount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            showEmptyParticipantCountAlert = true
+            return
+        }
+        saveRecord(allowEmptyParticipantCount: false)
+    }
+
+    private func saveRecord(allowEmptyParticipantCount: Bool) {
+        if participantCount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !allowEmptyParticipantCount {
+            showEmptyParticipantCountAlert = true
+            return
+        }
         if generatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             generatedText = SafetyEducationRecord.draftText(
                 type: selectedType.rawValue,
@@ -1171,11 +1354,26 @@ private struct MonthlyWorkSummaryView: View {
                     .red
                 )
                 statTile(
-                    "安全教育",
+                    "教育次数",
                     "\(stats.educationCount)",
-                    "\(stats.participantCount) 人次 · \(trendCaption(current: stats.educationCount, previous: previousMonthStats.educationCount, positiveIsGood: true, zeroText: "与上月持平"))",
+                    trendCaption(current: stats.educationCount, previous: previousMonthStats.educationCount, positiveIsGood: true, zeroText: "与上月持平"),
                     .blue
                 )
+                statTile(
+                    "参加人次",
+                    "\(stats.participantCount)",
+                    stats.missingParticipantCount > 0 ? "\(stats.missingParticipantCount) 条教育未填人数" : "人数记录完整",
+                    .blue
+                )
+            }
+
+            if stats.missingParticipantCount > 0 {
+                Label("有 \(stats.missingParticipantCount) 条教育记录未填写参加人数，已按 0 人次纳入统计。", systemImage: "info.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.blue)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
 
             VStack(spacing: 8) {
@@ -1389,6 +1587,9 @@ private struct MonthlyWorkStats {
     var participantCount: Int {
         monthEducationRecords.reduce(0) { $0 + Int($1.participantCount) }
     }
+    var missingParticipantCount: Int {
+        monthEducationRecords.filter { $0.participantCount == 0 }.count
+    }
     var closureRateText: String {
         guard totalFindings > 0 else { return "—" }
         let value = Double(closedFindings) / Double(totalFindings) * 100
@@ -1436,7 +1637,7 @@ private struct MonthlyWorkStats {
         } else {
             lines.append("保持现场巡查和教育留痕，重点关注高风险作业、临边洞口、临时用电和班前教育落实情况。")
         }
-        lines.append("本月开展安全教育 \(educationCount) 次，累计参加 \(participantCount) 人次，主要教育类型为\(topEducationType)。")
+        lines.append(educationSummarySentence)
         return lines.joined(separator: "\n")
     }
 
@@ -1465,8 +1666,16 @@ private struct MonthlyWorkStats {
         lines.append("")
         lines.append("【四、下月计划】")
         lines.append("继续围绕高风险作业、临边洞口、临时用电和班前教育开展专项检查，并保持教育留痕常态化。")
-        lines.append("本月安全教育 \(educationCount) 次，累计 \(participantCount) 人次，主要教育类型为\(topEducationType)。")
+        lines.append(educationSummarySentence)
         return lines.joined(separator: "\n")
+    }
+
+    private var educationSummarySentence: String {
+        var sentence = "本月开展安全教育 \(educationCount) 次，累计参加 \(participantCount) 人次，主要教育类型为\(topEducationType)。"
+        if missingParticipantCount > 0 {
+            sentence += "其中 \(missingParticipantCount) 条教育记录未填写参加人数，已按 0 人次统计。"
+        }
+        return sentence
     }
 
     private func topValue(_ values: [String]) -> String? {

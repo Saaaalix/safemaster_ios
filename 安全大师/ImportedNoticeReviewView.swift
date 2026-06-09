@@ -16,8 +16,13 @@ struct ImportedNoticeReviewView: View {
     @State private var message: String?
     @State private var isReparsing = false
     @State private var isPersisting = false
+    @State private var isPersisted: Bool
     @State private var expandedHazardIDs: Set<UUID> = []
     @State private var showOriginalText = false
+    @State private var pendingScrollTarget: String?
+    @State private var persistedFindingObjectID: NSManagedObjectID?
+    @State private var showPersistedRecordDetail = false
+    @State private var showPersistedSuccessDialog = false
 
     init(
         document: ImportedNoticeDocument,
@@ -27,25 +32,34 @@ struct ImportedNoticeReviewView: View {
         self.document = document
         self.extraction = extraction
         _draft = State(initialValue: draft)
+        _isPersisted = State(initialValue: document.processingStatus == .reviewed)
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                summaryCard
-                attentionSection
-                hazardsSection
-                advancedSection
-                if let message {
-                    Text(message)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 4)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    summaryCard
+                    attentionSection
+                    hazardsSection
+                    advancedSection
+                    if let message {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 96)
+            }
+            .onChange(of: pendingScrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    proxy.scrollTo(target, anchor: .center)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 96)
         }
         .background(Color(.systemGroupedBackground))
         .safeAreaInset(edge: .bottom) {
@@ -53,6 +67,13 @@ struct ImportedNoticeReviewView: View {
         }
         .navigationTitle("导入文件处理")
         .inlineNavigationTitleMode()
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("关闭") {
+                    dismiss()
+                }
+            }
+        }
         .sheet(isPresented: $showOriginalText) {
             NavigationStack {
                 ImportedNoticeOriginalTextView(
@@ -61,6 +82,27 @@ struct ImportedNoticeReviewView: View {
                     text: extraction?.cleanedText ?? "暂无可查看的原文。"
                 )
             }
+        }
+        .sheet(isPresented: $showPersistedRecordDetail) {
+            if let persistedFindingObjectID {
+                NavigationStack {
+                    RecordDetailView(findingObjectID: persistedFindingObjectID)
+                }
+            }
+        }
+        .confirmationDialog(
+            "已保存为外部文书归档记录",
+            isPresented: $showPersistedSuccessDialog,
+            titleVisibility: .visible
+        ) {
+            Button("查看归档记录") {
+                showPersistedRecordDetail = true
+            }
+            Button("返回导入箱", role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            Text("该导入文件已归档，隐患条目和整改要求可在记录详情中继续补充。")
         }
     }
 
@@ -94,6 +136,8 @@ struct ImportedNoticeReviewView: View {
                 summaryMetric(title: "整体判断", value: overallStatus.title)
             }
 
+            missingFieldSummary
+
             TextField("摘要", text: $draft.summary, axis: .vertical)
                 .font(.subheadline)
                 .lineLimit(2...4)
@@ -104,11 +148,48 @@ struct ImportedNoticeReviewView: View {
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 
+    @ViewBuilder
+    private var missingFieldSummary: some View {
+        if isPersisted {
+            Label("整体判断：已归档", systemImage: "checkmark.seal.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.green)
+        } else if missingFieldTargets.isEmpty {
+            Label("整体判断：可归档", systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.green)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("整体判断：需补充", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+                Text("待补字段")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                FlowLikeChips(items: missingFieldTargets) { item in
+                    Button {
+                        pendingScrollTarget = item.anchor
+                    } label: {
+                        Label(item.title, systemImage: "arrow.down.circle")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.orange)
+                }
+            }
+        }
+    }
+
     private var attentionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("需要补充")
             VStack(spacing: 0) {
-                if attentionFieldCount == 0 {
+                if isPersisted {
+                    Label("该草稿已归档，后续请在排查记录中补充或修正台账信息。", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                } else if attentionFieldCount == 0 {
                     Label("关键字段已基本齐全", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -116,24 +197,31 @@ struct ImportedNoticeReviewView: View {
                 } else {
                     if draft.needsAttention(.projectName) {
                         compactFieldEditor("项目名称", field: $draft.projectName)
+                            .id(Self.anchorProjectName)
                     }
                     if draft.needsAttention(.issuer) {
                         compactFieldEditor("发文单位", field: $draft.issuer)
+                            .id(Self.anchorIssuer)
                     }
                     if draft.needsAttention(.inspectedUnit) {
                         compactFieldEditor("被检查单位", field: $draft.inspectedUnit)
+                            .id(Self.anchorInspectedUnit)
                     }
                     if draft.needsAttention(.noticeNo) {
                         compactFieldEditor("通知编号", field: $draft.noticeNo)
+                            .id(Self.anchorNoticeNo)
                     }
                     if draft.needsAttention(.noticeDate) {
                         compactFieldEditor("通知日期", field: $draft.noticeDate)
+                            .id(Self.anchorNoticeDate)
                     }
                     if draft.needsAttention(.rectificationDeadline) {
                         compactFieldEditor("整改期限", field: $draft.rectificationDeadline)
+                            .id(Self.anchorRectificationDeadline)
                     }
                     if draft.needsAttention(.legalBasis) {
                         compactFieldEditor("法律依据", field: $draft.legalBasis, axis: .vertical)
+                            .id(Self.anchorLegalBasis)
                     }
                 }
             }
@@ -158,13 +246,18 @@ struct ImportedNoticeReviewView: View {
                 ContentUnavailableView(
                     "暂无条目",
                     systemImage: "checklist",
-                    description: Text("可以手动新增一条整改任务。")
+                    description: Text("隐患条目未完整识别，不影响归档。归档后可在记录详情中继续补充。")
                 )
                 .padding()
                 .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
             } else {
                 ForEach(Array(draft.hazards.indices), id: \.self) { index in
                     hazardCard(index: index)
+                }
+                if coreHazardReferenceNeedsReview {
+                    Label("隐患条目未完整识别，不影响归档。归档后可在记录详情中继续补充。", systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -207,69 +300,164 @@ struct ImportedNoticeReviewView: View {
     }
 
     private var bottomActionBar: some View {
-        HStack(spacing: 10) {
-            Button {
-                saveDraft()
-            } label: {
-                Label("保存草稿", systemImage: "square.and.arrow.down")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
+        VStack(alignment: .leading, spacing: 8) {
+            persistenceStatusBanner
 
-            Button {
-                confirmPersistence()
-            } label: {
-                if isPersisting {
-                    Label("入库中…", systemImage: "hourglass")
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Label("确认入库", systemImage: "checkmark.circle.fill")
+            HStack(spacing: 10) {
+                Button {
+                    saveDraft()
+                } label: {
+                    Label("保存草稿", systemImage: "square.and.arrow.down")
                         .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.bordered)
+                .disabled(isPersisted)
+
+                Button {
+                    if isPersisted {
+                        openPersistedRecord()
+                    } else {
+                        confirmPersistence()
+                    }
+                } label: {
+                    if isPersisted {
+                        Label("查看归档记录", systemImage: "arrow.right.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    } else if isPersisting {
+                        Label("归档中…", systemImage: "hourglass")
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Label("确认归档", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isPersisting || (!isPersisted && hasBlockingMissingFields))
+
+                Menu {
+                    Button {
+                        reparseDraft()
+                    } label: {
+                        Label(isReparsing ? "重新识别中…" : "重新识别", systemImage: "text.magnifyingglass")
+                    }
+                    .disabled(isReparsing || extraction == nil || isPersisted)
+
+                    Button {
+                        showOriginalText = true
+                    } label: {
+                        Label("查看原文", systemImage: "doc.plaintext")
+                    }
+
+                    Button {
+                        archiveOnly()
+                    } label: {
+                        Label("仅保存原文件", systemImage: "archivebox")
+                    }
+                    .disabled(isPersisted)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                        .frame(width: 42, height: 42)
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(isPersisting)
-
-            Menu {
-                Button {
-                    reparseDraft()
-                } label: {
-                    Label(isReparsing ? "重新识别中…" : "重新识别", systemImage: "text.magnifyingglass")
-                }
-                .disabled(isReparsing || extraction == nil)
-
-                Button {
-                    showOriginalText = true
-                } label: {
-                    Label("查看原文", systemImage: "doc.plaintext")
-                }
-
-                Button {
-                    archiveOnly()
-                } label: {
-                    Label("仅保存原文件", systemImage: "archivebox")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.title3)
-                    .frame(width: 42, height: 42)
-            }
-            .buttonStyle(.bordered)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(.regularMaterial)
     }
 
+    private var persistenceStatusBanner: some View {
+        Group {
+            if isPersisted {
+                Label("已成功归档，可在排查记录中查看", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else if hasBlockingMissingFields {
+                Label("还差：\(missingFieldTitlesText)", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else if let message {
+                let isFailure = message.contains("失败")
+                Label(message, systemImage: isFailure ? "xmark.octagon.fill" : "info.circle.fill")
+                    .foregroundStyle(isFailure ? .red : .secondary)
+                    .background((isFailure ? Color.red : Color.secondary).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var attentionFieldCount: Int {
-        draft.requiredFields.filter { draft.needsAttention($0) }.count
+        if isPersisted { return 0 }
+        return draft.requiredFields.filter { draft.needsAttention($0) }.count
     }
 
     private var hazardNeedsReviewCount: Int {
         draft.hazards.filter { hazardStatus(for: $0) != .confirmed }.count
     }
 
+    private var coreHazardMissingCount: Int {
+        0
+    }
+
+    private var coreHazardReferenceNeedsReview: Bool {
+        draft.hazards.isEmpty || draft.hazards.contains { hazard in
+            nonEmpty(hazard.description.value) == nil || nonEmpty(hazard.requirement.value) == nil
+        }
+    }
+
+    private var hasBlockingMissingFields: Bool {
+        attentionFieldCount > 0
+    }
+
+    private var missingFieldTargets: [MissingFieldTarget] {
+        if isPersisted { return [] }
+        var targets: [MissingFieldTarget] = []
+        if draft.needsAttention(.projectName) {
+            targets.append(MissingFieldTarget(title: "项目名称", anchor: Self.anchorProjectName))
+        }
+        if draft.needsAttention(.issuer) {
+            targets.append(MissingFieldTarget(title: "发文单位", anchor: Self.anchorIssuer))
+        }
+        if draft.needsAttention(.inspectedUnit) {
+            targets.append(MissingFieldTarget(title: "被检查单位", anchor: Self.anchorInspectedUnit))
+        }
+        if draft.needsAttention(.noticeNo) {
+            targets.append(MissingFieldTarget(title: "通知编号", anchor: Self.anchorNoticeNo))
+        }
+        if draft.needsAttention(.noticeDate) {
+            targets.append(MissingFieldTarget(title: "通知日期", anchor: Self.anchorNoticeDate))
+        }
+        if draft.needsAttention(.rectificationDeadline) {
+            targets.append(MissingFieldTarget(title: "整改期限", anchor: Self.anchorRectificationDeadline))
+        }
+        if draft.needsAttention(.legalBasis) {
+            targets.append(MissingFieldTarget(title: "法律依据", anchor: Self.anchorLegalBasis))
+        }
+        return targets
+    }
+
+    private var missingFieldTitlesText: String {
+        let titles = missingFieldTargets.map(\.title)
+        return titles.isEmpty ? "无" : titles.joined(separator: "、")
+    }
+
+    private static let anchorProjectName = "review-field-project-name"
+    private static let anchorIssuer = "review-field-issuer"
+    private static let anchorInspectedUnit = "review-field-inspected-unit"
+    private static let anchorNoticeNo = "review-field-notice-no"
+    private static let anchorNoticeDate = "review-field-notice-date"
+    private static let anchorRectificationDeadline = "review-field-rectification-deadline"
+    private static let anchorLegalBasis = "review-field-legal-basis"
+    private static let anchorHazards = "review-field-hazards"
+
     private var overallStatus: ReviewStatus {
+        if isPersisted {
+            return .confirmed
+        }
         if attentionFieldCount > 0 {
             return .needsSupplement
         }
@@ -309,12 +497,21 @@ struct ImportedNoticeReviewView: View {
                 .foregroundStyle(.primary)
                 .frame(width: 86, alignment: .leading)
 
-            if axis == .vertical {
-                TextField("请补充", text: field.value, axis: .vertical)
-                    .lineLimit(2...4)
-            } else {
-                TextField("请补充", text: field.value)
-                    .lineLimit(1)
+            HStack(spacing: 8) {
+                if title.contains("日期") || title.contains("期限") {
+                    Image(systemName: "calendar")
+                        .foregroundStyle(.blue)
+                        .accessibilityHidden(true)
+                }
+                if axis == .vertical {
+                    TextField("请补充", text: field.value, axis: .vertical)
+                        .lineLimit(2...4)
+                        .formalTextInput()
+                } else {
+                    TextField(title.contains("日期") || title.contains("期限") ? "请选择或输入日期" : "请补充", text: field.value)
+                        .lineLimit(1)
+                        .formalTextInput()
+                }
             }
 
             if fieldNeedsAttention(field.wrappedValue) {
@@ -426,6 +623,7 @@ struct ImportedNoticeReviewView: View {
             }
             .padding(14)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .id(index == 0 ? Self.anchorHazards : "\(Self.anchorHazards)-\(index)")
         }
     }
 
@@ -544,8 +742,10 @@ struct ImportedNoticeReviewView: View {
             if axis == .vertical {
                 TextField(title, text: field.value, axis: .vertical)
                     .lineLimit(2...6)
+                    .formalTextInput()
             } else {
                 TextField(title, text: field.value)
+                    .formalTextInput()
             }
 
             HStack(spacing: 8) {
@@ -600,6 +800,10 @@ struct ImportedNoticeReviewView: View {
     }
 
     private func saveDraft() {
+        guard !isPersisted else {
+            message = "已归档记录无需重复保存草稿。"
+            return
+        }
         if ImportedNoticeDocumentStore.saveDraft(draft) != nil {
             _ = ImportedNoticeDocumentStore.updateProcessingStatus(.draftReady, forDocumentID: document.id)
             message = "草稿已保存。"
@@ -634,13 +838,21 @@ struct ImportedNoticeReviewView: View {
 
     private func confirmPersistence() {
         guard !isPersisting else { return }
+        guard !isPersisted else {
+            openPersistedRecord()
+            return
+        }
+        guard !hasBlockingMissingFields else {
+            message = "正文已归档为草稿，但部分字段未识别。请补充关键归档信息后保存。"
+            return
+        }
         guard ImportedNoticeDocumentStore.saveDraft(draft) != nil else {
-            message = "草稿保存失败，暂未入库。"
+            message = "草稿保存失败，暂未归档。"
             return
         }
 
         isPersisting = true
-        message = "正在入库，请稍候…"
+        message = "正在保存归档，请稍候…"
         let draftToSave = draft
         let documentID = document.id
         let context = viewContext
@@ -655,20 +867,41 @@ struct ImportedNoticeReviewView: View {
                 await MainActor.run {
                     _ = ImportedNoticeDocumentStore.updateProcessingStatus(.reviewed, forDocumentID: documentID)
                     isPersisting = false
+                    isPersisted = true
                     switch result.status {
                     case .saved:
-                        message = "已确认入库。"
+                        message = "已保存为归档记录"
                     case .updated:
-                        message = "已更新入库记录。"
+                        message = "已更新归档记录"
                     }
+                    persistedFindingObjectID = result.findingObjectID
+                    showPersistedSuccessDialog = true
                 }
             } catch {
                 await MainActor.run {
                     isPersisting = false
-                    message = "入库失败：\(error.localizedDescription)"
+                    message = "归档失败，请检查信息后重试：\(error.localizedDescription)"
                 }
             }
         }
+    }
+
+    private func openPersistedRecord() {
+        if persistedFindingObjectID == nil {
+            persistedFindingObjectID = findPersistedImportedFindingObjectID()
+        }
+        guard persistedFindingObjectID != nil else {
+            message = "未找到对应归档记录，可能已被删除。"
+            return
+        }
+        showPersistedRecordDetail = true
+    }
+
+    private func findPersistedImportedFindingObjectID() -> NSManagedObjectID? {
+        let request = NSFetchRequest<InspectionFinding>(entityName: "InspectionFinding")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "findingId == %@", "imported-notice:\(document.id.uuidString)")
+        return try? viewContext.fetch(request).first?.objectID
     }
 
     private func archiveOnly() {
@@ -715,7 +948,7 @@ private enum ReviewStatus {
     var title: String {
         switch self {
         case .ready:
-            return "可入库"
+            return "可归档"
         case .needsSupplement:
             return "需补充"
         case .needsReview:
@@ -768,7 +1001,47 @@ private struct StatusBadge: View {
     }
 }
 
+private struct MissingFieldTarget: Hashable {
+    var title: String
+    var anchor: String
+}
+
+private struct FlowLikeChips<Item: Hashable, Content: View>: View {
+    let items: [Item]
+    @ViewBuilder var content: (Item) -> Content
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 118), spacing: 8, alignment: .leading)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            ForEach(items, id: \.self) { item in
+                content(item)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+}
+
+private struct FormalTextInputModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+#if os(iOS)
+            .textInputAutocapitalization(.never)
+#endif
+            .autocorrectionDisabled(true)
+    }
+}
+
+private extension View {
+    func formalTextInput() -> some View {
+        modifier(FormalTextInputModifier())
+    }
+}
+
 private struct ImportedNoticeOriginalTextView: View {
+    @Environment(\.dismiss) private var dismiss
     var title: String
     var fileName: String
     var text: String
@@ -787,6 +1060,13 @@ private struct ImportedNoticeOriginalTextView: View {
         }
         .navigationTitle(title)
         .inlineNavigationTitleMode()
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("关闭") {
+                    dismiss()
+                }
+            }
+        }
     }
 }
 

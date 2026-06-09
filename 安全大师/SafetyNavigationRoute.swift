@@ -25,8 +25,12 @@ enum SafetyNavigationRoute: Hashable {
     case safetyEducation
     /// 月度工作总结：汇总排查、整改和教育数据。
     case monthlySummary
+    /// 文书中心：导入文件、套用模板、查看存档报告。
+    case documentCenter
     /// 报告模板：配置导出标题、字段、照片布局与签字栏。
     case reportTemplate
+    /// 报告存档：查看、预览和分享已经生成并保存的报告。
+    case reportArchive
     case hazardLibrary
     /// 导入箱：先存文件，再选择是否识别与建档。
     case importedNoticeInbox

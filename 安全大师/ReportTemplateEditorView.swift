@@ -4,8 +4,11 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ReportTemplateEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+
     let previewData: ReportTemplatePreviewData
     @State private var template = ReportTemplate.default
     @State private var editableFields: ReportTemplateEditableFields
@@ -20,6 +23,10 @@ struct ReportTemplateEditorView: View {
     @State private var exportConfirmation: ReportExportConfirmation?
     @State private var templateStatusMessage: String?
     @State private var didLoadInitialTemplate = false
+    @State private var importedWordTemplates: [ImportedWordTemplate]
+    @State private var showWordTemplateImporter = false
+    @State private var wordTemplateReview: ImportedWordTemplate?
+    @State private var wordTemplateMessage: String?
 
     init(previewData: ReportTemplatePreviewData = .sample) {
         let loadedTemplates = SavedReportTemplateStore.load()
@@ -32,6 +39,7 @@ struct ReportTemplateEditorView: View {
         _selectedDocumentKind = State(initialValue: firstTemplate?.documentKind ?? .rectificationReply)
         _templateName = State(initialValue: firstTemplate?.name ?? ReportDocumentKind.rectificationReply.displayName)
         _templateDescription = State(initialValue: firstTemplate?.description ?? "")
+        _importedWordTemplates = State(initialValue: ImportedWordTemplateStore.load())
     }
 
     private var orderedModules: [ReportModule] {
@@ -63,6 +71,7 @@ struct ReportTemplateEditorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 templateSelectionSection
+                importedWordTemplateSection
                 a4Preview
                 editableFieldsSection
                 moduleManagement
@@ -73,7 +82,19 @@ struct ReportTemplateEditorView: View {
         .navigationTitle("文书生成")
         .inlineNavigationTitleMode()
         .onAppear(perform: loadInitialTemplate)
+        .fileImporter(
+            isPresented: $showWordTemplateImporter,
+            allowedContentTypes: wordTemplateContentTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            handleWordTemplateImport(result)
+        }
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("关闭") {
+                    dismiss()
+                }
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("检查报告") {
                     checkReport()
@@ -117,7 +138,18 @@ struct ReportTemplateEditorView: View {
         .sheet(item: $pdfShareItem) { item in
             ActivityShareView(items: [item.url])
         }
+        .sheet(item: $wordTemplateReview) { template in
+            WordTemplateBindingReviewView(template: template) { updated in
+                ImportedWordTemplateStore.upsert(updated)
+                importedWordTemplates = ImportedWordTemplateStore.load()
+                wordTemplateMessage = "已保存“\(updated.name)”的字段绑定。"
+            }
+        }
 #endif
+    }
+
+    private var wordTemplateContentTypes: [UTType] {
+        [UTType(filenameExtension: "docx")].compactMap { $0 }
     }
 
     private var templateSelectionSection: some View {
@@ -219,6 +251,89 @@ struct ReportTemplateEditorView: View {
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
+    private var importedWordTemplateSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("单位 Word 模板")
+                        .font(.headline)
+                    Text("导入单位自己的 .docx 空白表，确认字段绑定后生成 Word 文书。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    showWordTemplateImporter = true
+                } label: {
+                    Label("导入", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            if importedWordTemplates.isEmpty {
+                Text("尚未导入单位模板。没有模板时，仍可继续使用下方系统模板。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(importedWordTemplates) { template in
+                        importedWordTemplateRow(template)
+                    }
+                }
+            }
+
+            if let wordTemplateMessage {
+                Text(wordTemplateMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func importedWordTemplateRow(_ template: ImportedWordTemplate) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(template.name)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Text("\(template.originalFileName) · 已识别 \(template.placeholders.count) 个位置 · 已绑定 \(template.activeBindingCount) 个")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                Button("确认绑定") {
+                    wordTemplateReview = template
+                }
+                .buttonStyle(.bordered)
+
+                Button("生成测试文书") {
+                    generateWordTemplateDocument(template)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(template.activeBindingCount == 0)
+
+                Button("删除", role: .destructive) {
+                    ImportedWordTemplateStore.delete(template)
+                    importedWordTemplates = ImportedWordTemplateStore.load()
+                    wordTemplateMessage = "已删除单位模板。"
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(10)
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
     private var a4Preview: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
@@ -274,8 +389,9 @@ struct ReportTemplateEditorView: View {
     private var editableFieldsSection: some View {
         DisclosureGroup {
             VStack(alignment: .leading, spacing: 12) {
-                TextField("报告标题", text: $editableFields.reportTitle)
-                    .textFieldStyle(.roundedBorder)
+            TextField("报告标题", text: $editableFields.reportTitle)
+                .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
 
                 switch selectedDocumentKind {
                 case .hazardNotice:
@@ -301,18 +417,25 @@ struct ReportTemplateEditorView: View {
         Group {
             TextField("通知编号", text: $editableFields.noticeNumber)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("检查单位", text: $editableFields.inspectionUnit)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("受检单位", text: $editableFields.inspectedUnit)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("检查时间", text: $editableFields.inspectionDate)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("整改期限", text: $editableFields.rectificationDeadline)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("检查人", text: $editableFields.inspector)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("接收人", text: $editableFields.receiver)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             editableTextArea("正文说明", text: $editableFields.narrativeText, minHeight: 96)
             editableTextArea("补充说明", text: $editableFields.additionalNotes, minHeight: 72)
         }
@@ -322,21 +445,29 @@ struct ReportTemplateEditorView: View {
         Group {
             TextField("项目名称", text: $editableFields.projectName)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("受检单位", text: $editableFields.inspectedUnit)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("检查时间", text: $editableFields.inspectionDate)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             editableTextArea("正文说明", text: $editableFields.narrativeText, minHeight: 96)
             TextField("整改负责人", text: $editableFields.rectificationResponsiblePerson)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("安全总监", text: $editableFields.safetyDirector)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("项目负责人", text: $editableFields.projectManager)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("复查人", text: $editableFields.reviewer)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             TextField("日期", text: $editableFields.signatureDate)
                 .textFieldStyle(.roundedBorder)
+                .formalTemplateInput()
             editableTextArea("复查意见", text: $editableFields.reviewOpinion, minHeight: 72)
             editableTextArea("补充说明", text: $editableFields.additionalNotes, minHeight: 72)
         }
@@ -647,6 +778,38 @@ struct ReportTemplateEditorView: View {
             exportErrorMessage = error.localizedDescription
         }
     }
+
+    private func handleWordTemplateImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            do {
+                let template = try ImportedWordTemplateStore.importTemplate(from: url)
+                importedWordTemplates = ImportedWordTemplateStore.load()
+                wordTemplateReview = template
+                wordTemplateMessage = "已导入“\(template.originalFileName)”，请确认字段绑定。"
+            } catch {
+                wordTemplateMessage = error.localizedDescription
+            }
+        case .failure(let error):
+            wordTemplateMessage = "导入失败：\(error.localizedDescription)"
+        }
+    }
+
+    private func generateWordTemplateDocument(_ template: ImportedWordTemplate) {
+        do {
+            let url = try WordTemplateFiller.buildDocument(
+                template: template,
+                editableFields: editableFields,
+                previewData: previewData,
+                outputKind: selectedDocumentKind == .rectificationReply ? .rectification : .inspection
+            )
+            pdfShareItem = PDFShareItem(url: url)
+            wordTemplateMessage = "已按单位模板生成 Word 文书。"
+        } catch {
+            wordTemplateMessage = error.localizedDescription
+        }
+    }
 }
 
 private struct PDFShareItem: Identifiable {
@@ -744,6 +907,9 @@ private struct ReportValidationResultView: View {
                 Label(title, systemImage: systemImage)
                     .font(.headline)
                     .foregroundStyle(tint)
+                Text(issues.first?.severity.explanation ?? "")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 ForEach(issues) { issue in
                     VStack(alignment: .leading, spacing: 6) {
@@ -768,6 +934,22 @@ private struct ReportValidationResultView: View {
                 }
             }
         }
+    }
+}
+
+private struct FormalTemplateInputModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+#if os(iOS)
+            .textInputAutocapitalization(.never)
+#endif
+            .autocorrectionDisabled(true)
+    }
+}
+
+private extension View {
+    func formalTemplateInput() -> some View {
+        modifier(FormalTemplateInputModifier())
     }
 }
 
